@@ -2,6 +2,7 @@ import os
 import time
 import json
 import requests
+from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from slugify import slugify
@@ -44,9 +45,12 @@ CATEGORIES = {
 
 def get_soup(url):
     """Fetch URL and return BeautifulSoup object with rate limiting."""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     time.sleep(1.5)
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         return BeautifulSoup(response.text, "html.parser")
     except Exception as e:
@@ -175,7 +179,11 @@ def scrape_prayer(url, category_name):
     if lang_view:
         for a in lang_view.find_all("a"):
             lang_name = a.text.strip().lower()
-            lang_url = "https://www.vignanam.org" + a["href"]
+            # Handle relative paths by removing leading dots if present
+            href = a["href"]
+            if href.startswith(".."):
+                href = href.lstrip(".")
+            lang_url = urljoin("https://www.vignanam.org", href)
             lang_links[lang_name] = lang_url
 
     # Scrape each language
@@ -232,7 +240,11 @@ def main():
         prayer_urls = []
         for a in links:
             if "/english/" in a["href"] and a["href"].endswith(".html") and "-stotrams.html" not in a["href"]:
-                full_url = "https://www.vignanam.org" + a["href"]
+                # Handle relative paths by removing leading dots if present
+                href = a["href"]
+                if href.startswith(".."):
+                    href = href.lstrip(".")
+                full_url = urljoin("https://www.vignanam.org", href)
                 if full_url not in prayer_urls:
                     prayer_urls.append(full_url)
 
