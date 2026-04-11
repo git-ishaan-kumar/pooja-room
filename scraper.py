@@ -61,7 +61,7 @@ def get_youtube_data(title):
     try:
         # Search for video
         search_response = youtube.search().list(
-            q=f"{title} chanting",
+            q=f"{title} chanting lyrics",
             part="id,snippet",
             maxResults=1,
             type="video"
