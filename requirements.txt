@@ -1,0 +1,8 @@
+requests
+beautifulsoup4
+google-api-python-client
+youtube-transcript-api
+thefuzz
+supabase
+python-dotenv
+python-slugify
