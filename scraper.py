@@ -2,6 +2,7 @@ import os
 import time
 import json
 import requests
+import cloudscraper
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -44,20 +45,17 @@ CATEGORIES = {
 }
 
 def get_soup(url):
-    """Fetch URL and return BeautifulSoup object with rate limiting."""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Referer": "https://www.google.com/",
-        "DNT": "1",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1"
-    }
+    """Fetch URL and return BeautifulSoup object with Cloudflare bypass."""
     time.sleep(3)
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        scraper = cloudscraper.create_scraper(
+            browser={
+                "browser": "chrome",
+                "platform": "windows",
+                "desktop": True
+            }
+        )
+        response = scraper.get(url, timeout=15)
         response.raise_for_status()
         return BeautifulSoup(response.text, "html.parser")
     except Exception as e:
