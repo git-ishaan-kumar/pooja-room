@@ -17,26 +17,31 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "prayers")
 TEST_MODE = os.getenv("TEST_MODE", "True").lower() == "true"
 
+SCRAPER = cloudscraper.create_scraper(
+    browser={
+        "browser": "chrome",
+        "platform": "windows",
+        "desktop": True
+    }
+)
+
 # Target Categories
 
 def get_soup(url):
     """Fetch URL and return BeautifulSoup object with Cloudflare bypass."""
     time.sleep(3)
+    response = None
     try:
-        scraper = cloudscraper.create_scraper(
-            browser={
-                "browser": "chrome",
-                "platform": "windows",
-                "desktop": True
-            }
-        )
-        response = scraper.get(url, timeout=15)
+        response = SCRAPER.get(url, timeout=15)
         response.encoding = 'utf-8'
         response.raise_for_status()
         return BeautifulSoup(response.text, "html.parser")
     except Exception as e:
         print(f"Error fetching {url}: {e}")
         return None
+    finally:
+        if response:
+            response.close()
 
 def upload_to_supabase(slug, data, category_name):
     """Upload JSON to storage and upsert metadata to DB using REST API."""
