@@ -25,24 +25,6 @@ TEST_MODE = os.getenv("TEST_MODE", "True").lower() == "true"
 youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY) if YOUTUBE_API_KEY else None
 
 # Target Categories
-CATEGORIES = {
-    "Ganesha Stotrams": "https://www.vignanam.org/english/ganesha-stotrams.html",
-    "Shiva Stotrams": "https://www.vignanam.org/english/shiva-stotrams.html",
-    "Vishnu Stotrams": "https://www.vignanam.org/english/vishnu-stotrams.html",
-    "Sri Rama Stotrams": "https://www.vignanam.org/english/sri-rama-stotrams.html",
-    "Sri Krishna Stotrams": "https://www.vignanam.org/english/sri-krishna-stotrams.html",
-    "Hanuma Stotrams": "https://www.vignanam.org/english/hanuma-stotrams.html",
-    "Devi Stotrams": "https://www.vignanam.org/english/devi-stotrams.html",
-    "Durga Stotrams": "https://www.vignanam.org/english/durga-stotrams.html",
-    "Lakshmi Stotrams": "https://www.vignanam.org/english/lakshmi-stotrams.html",
-    "Saraswati Stotrams": "https://www.vignanam.org/english/saraswati-stotrams.html",
-    "Surya Bhagavan Stotrams": "https://www.vignanam.org/english/surya-bhagavan-stotrams.html",
-    "Subrahmanya Swamy Stotrams": "https://www.vignanam.org/english/subrahmanya-swamy-stotrams.html",
-    "Daily Prayers": "https://www.vignanam.org/english/daily-prayers.html",
-    "Nitya Parayana Slokas": "https://www.vignanam.org/english/nitya-parayana-slokas.html",
-    "Ashtakams": "https://www.vignanam.org/english/ashtakams.html",
-    "Adi Shankaracharya Stotrams": "https://www.vignanam.org/english/adi-shankaracharya-stotrams.html",
-}
 
 def get_soup(url):
     """Fetch URL and return BeautifulSoup object with Cloudflare bypass."""
@@ -230,39 +212,45 @@ def scrape_prayer(url, category_name):
     return slug
 
 def main():
-    print("Starting Pooja Room Scraper...")
+    print("Starting Pooja Room Scraper (Dynamic Category Mode)...")
+    base_url = "https://www.vignanam.org/"
+    soup = get_soup(base_url)
+    if not soup:
+        print("Failed to fetch homepage.")
+        return
+
     processed_count = 0
-    
-    for category_name, cat_url in CATEGORIES.items():
-        print(f"\nScraping Category: {category_name}")
-        soup = get_soup(cat_url)
-        if not soup:
+    tree = soup.find("ul", class_="aqtree3clickable")
+    if not tree:
+        print("Could not find prayer tree.")
+        return
+
+    for li in tree.find_all("li", recursive=False):
+        # Find category name
+        cat_link = li.find("a", class_="link1")
+        if not cat_link:
             continue
+        
+        # Clean category name: split at ( and replace \xa0
+        category_name = cat_link.get_text().split('(')[0].replace('\xa0', ' ').strip()
+        print(f"\nScraping Category: {category_name}")
 
-        # Find all prayer links in the category page
-        # Usually they are in <li> inside a specific div or list
-        links = soup.find_all("a", href=True)
-        prayer_urls = []
-        for a in links:
-            if "/english/" in a["href"] and a["href"].endswith(".html") and "-stotrams.html" not in a["href"]:
-                # Handle relative paths by removing leading dots if present
-                href = a["href"]
-                if href.startswith(".."):
-                    href = href.lstrip(".")
-                full_url = urljoin("https://www.vignanam.org", href)
-                if full_url not in prayer_urls:
-                    prayer_urls.append(full_url)
-
-        for p_url in prayer_urls:
-            print(f"  Processing: {p_url}")
-            slug = scrape_prayer(p_url, category_name)
-            if slug:
-                processed_count += 1
-                print(f"  Successfully processed: {slug}")
-            
-            if TEST_MODE and processed_count >= 3:
-                print("\nTEST_MODE: Processed 3 prayers. Stopping.")
-                return
+        # Find all prayers in this category
+        prayer_links = li.find_all("a", class_="link4")
+        for a in prayer_links:
+            href = a.get("href", "")
+            if href.startswith("english/"):
+                full_url = urljoin(base_url, href)
+                print(f"  Processing: {full_url}")
+                
+                slug = scrape_prayer(full_url, category_name)
+                if slug:
+                    processed_count += 1
+                    print(f"  Successfully processed: {slug}")
+                
+                if TEST_MODE and processed_count >= 3:
+                    print("\nTEST_MODE: Processed 3 prayers. Stopping.")
+                    return
 
     print(f"\nScraping Complete. Total processed: {processed_count}")
 
