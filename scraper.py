@@ -158,7 +158,8 @@ def scrape_prayer(url, category_name):
     return slug
 
 def main():
-    print("Starting Pooja Room Scraper (Dynamic Category Mode)...")
+    print("Starting Pooja Room Scraper...")
+    WANTED_CATEGORIES = ["Ganesha Stotrams", "Shiva Stotrams", "Vishnu Stotrams", "Sri Rama Stotrams", "Sri Krishna Stotrams", "Hanuma Stotrams", "Devi Stotrams", "Durga Stotrams", "Lakshmi Stotrams", "Saraswati Stotrams", "Surya Bhagavan Stotrams", "Subrahmanya Swamy Stotrams", "Daily Prayers", "Nitya Parayana Slokas", "Ashtakams", "Adi Shankaracharya Stotrams"]
     base_url = "https://www.vignanam.org/"
     soup = get_soup(base_url)
     if not soup:
@@ -179,6 +180,10 @@ def main():
         
         # Clean category name: split at ( and replace \xa0
         category_name = cat_link.get_text().split('(')[0].replace('\xa0', ' ').strip()
+        
+        if category_name not in WANTED_CATEGORIES:
+            continue
+
         print(f"\nScraping Category: {category_name}")
 
         # Find all prayers in this category
