@@ -46,12 +46,19 @@ def upload_to_supabase(slug, data, category_name):
     storage_url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{slug}.json"
     headers = {
         "Authorization": f"Bearer {SUPABASE_KEY}",
+        "apikey": SUPABASE_KEY,
         "Content-Type": "application/json",
         "x-upsert": "true"
     }
     
     try:
-        storage_resp = requests.post(storage_url, headers=headers, data=json.dumps(data))
+        # Encode data to bytes for UTF-8 support (Sanskrit characters)
+        storage_data = json.dumps(data).encode('utf-8')
+        storage_resp = requests.post(storage_url, headers=headers, data=storage_data)
+        
+        if storage_resp.status_code == 400:
+            print(f"  Warning: 400 Bad Request for {slug}. Response: {storage_resp.text}")
+            
         storage_resp.raise_for_status()
         json_url = f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/{slug}.json"
     except Exception as e:
