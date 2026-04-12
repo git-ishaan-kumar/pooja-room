@@ -7,9 +7,6 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from slugify import slugify
-from googleapiclient.discovery import build
-from youtube_transcript_api import YouTubeTranscriptApi
-from thefuzz import fuzz
 
 # Load environment variables
 load_dotenv()
@@ -18,11 +15,7 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "prayers")
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 TEST_MODE = os.getenv("TEST_MODE", "True").lower() == "true"
-
-# Setup YouTube API client
-youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY) if YOUTUBE_API_KEY else None
 
 # Target Categories
 
@@ -43,59 +36,6 @@ def get_soup(url):
     except Exception as e:
         print(f"Error fetching {url}: {e}")
         return None
-
-def get_youtube_data(title):
-    """Search YouTube for chanting video and fetch transcript with fuzzy sync."""
-    if not youtube:
-        return None, []
-
-    try:
-        # Search for video
-        search_response = youtube.search().list(
-            q=f"{title} chanting lyrics",
-            part="id,snippet",
-            maxResults=1,
-            type="video"
-        ).execute()
-
-        if not search_response["items"]:
-            return None, []
-
-        video_id = search_response["items"][0]["id"]["videoId"]
-        
-        # Fetch transcript
-        try:
-            transcript = YouTubeTranscriptApi.get_transcript(video_id)
-        except:
-            return video_id, []
-
-        return video_id, transcript
-    except Exception as e:
-        print(f"YouTube Error for {title}: {e}")
-        return None, []
-
-def sync_timestamps(body_lines, transcript):
-    """Map transcript timestamps to prayer lines using fuzzy matching."""
-    timestamps = []
-    if not transcript:
-        return [None] * len(body_lines)
-
-    current_t_idx = 0
-    for line in body_lines:
-        best_match = None
-        best_score = 0
-        
-        # Look ahead in transcript for best fuzzy match
-        for i in range(current_t_idx, min(current_t_idx + 10, len(transcript))):
-            score = fuzz.partial_ratio(line.lower(), transcript[i]["text"].lower())
-            if score > 80 and score > best_score:
-                best_score = score
-                best_match = transcript[i]["start"]
-                current_t_idx = i
-        
-        timestamps.append(best_match)
-    
-    return timestamps
 
 def upload_to_supabase(slug, data, category_name):
     """Upload JSON to storage and upsert metadata to DB using REST API."""
@@ -179,26 +119,26 @@ def scrape_prayer(url, category_name):
         if l_soup:
             text_div = l_soup.find("div", id="stext")
             if text_div:
-                # Extract lines, filtering out empty ones
-                lines = [p.text.strip() for p in text_div.find_all("p") if p.text.strip()]
+                # Extract lines, filtering out empty ones and "Browse Related Categories:"
+                lines = [
+                    p.text.strip() for p in text_div.find_all("p") 
+                    if p.text.strip() and "Browse Related Categories:" not in p.text
+                ]
                 if not lines:
                     # Fallback if text is not in <p> tags
-                    lines = [line.strip() for line in text_div.text.split("\n") if line.strip()]
+                    lines = [
+                        line.strip() for line in text_div.text.split("\n") 
+                        if line.strip() and "Browse Related Categories:" not in line
+                    ]
                 languages[lang] = lines
 
     if not languages.get("english"):
         return None
 
-    # YouTube & Sync
-    video_id, transcript = get_youtube_data(title_english)
-    timestamps = sync_timestamps(languages["english"], transcript)
-
     prayer_data = {
         "id": slug,
         "category": category_name,
         "title_english": title_english,
-        "youtube_id": video_id,
-        "timestamps": timestamps,
         "body": languages
     }
 
