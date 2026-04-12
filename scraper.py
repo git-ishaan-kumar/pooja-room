@@ -31,6 +31,7 @@ def get_soup(url):
             }
         )
         response = scraper.get(url, timeout=15)
+        response.encoding = 'utf-8'
         response.raise_for_status()
         return BeautifulSoup(response.text, "html.parser")
     except Exception as e:
@@ -107,17 +108,13 @@ def scrape_prayer(url, category_name):
     # Language Map
     languages = {}
     
-    # Extract language links from languageView table
-    lang_view = soup.find("div", class_="languageView")
+    # Extract language links from td with class languageText
     lang_links = {"english": url}
-    if lang_view:
-        for a in lang_view.find_all("a"):
+    for td in soup.find_all("td", class_="languageText"):
+        a = td.find("a")
+        if a and a.get("href"):
             lang_name = a.text.strip().lower()
-            # Handle relative paths by removing leading dots if present
-            href = a["href"]
-            if href.startswith(".."):
-                href = href.lstrip(".")
-            lang_url = urljoin("https://www.vignanam.org", href)
+            lang_url = urljoin(url, a["href"])
             lang_links[lang_name] = lang_url
 
     # Scrape each language
