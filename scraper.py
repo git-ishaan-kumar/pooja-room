@@ -109,13 +109,15 @@ def scrape_prayer(url, category_name):
     languages = {}
     
     # Extract language links from td with class languageText
+    WANTED_LANGUAGES = ["english", "devanagari", "telugu", "tamil", "kannada", "malayalam", "hindi", "marathi", "bengali", "gujarati", "odia"]
     lang_links = {"english": url}
     for td in soup.find_all("td", class_="languageText"):
         a = td.find("a")
         if a and a.get("href"):
             lang_name = a.text.strip().lower()
-            lang_url = urljoin(url, a["href"])
-            lang_links[lang_name] = lang_url
+            if lang_name in WANTED_LANGUAGES:
+                lang_url = urljoin(url, a["href"])
+                lang_links[lang_name] = lang_url
 
     # Scrape each language
     for lang, l_url in lang_links.items():
@@ -187,10 +189,13 @@ def main():
                 full_url = urljoin(base_url, href)
                 print(f"  Processing: {full_url}")
                 
+                start_prayer_time = time.time()
                 slug = scrape_prayer(full_url, category_name)
                 if slug:
+                    end_prayer_time = time.time()
+                    duration = end_prayer_time - start_prayer_time
                     processed_count += 1
-                    print(f"  Successfully processed: {slug}")
+                    print(f"  Successfully processed: {slug} in {duration:.2f} seconds")
                 
                 if TEST_MODE and processed_count >= 3:
                     print("\nTEST_MODE: Processed 3 prayers. Stopping.")
