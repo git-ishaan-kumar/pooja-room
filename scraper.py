@@ -17,6 +17,13 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "prayers")
 TEST_MODE = os.getenv("TEST_MODE", "True").lower() == "true"
 
+# ANSI Color Codes
+GREEN = '\033[92m'
+RED = '\033[91m'
+YELLOW = '\033[93m'
+CYAN = '\033[96m'
+RESET = '\033[0m'
+
 SCRAPER = cloudscraper.create_scraper(
     browser={
         "browser": "chrome",
@@ -37,7 +44,7 @@ def get_soup(url):
         response.raise_for_status()
         return BeautifulSoup(response.text, "html.parser")
     except Exception as e:
-        print(f"Error fetching {url}: {e}")
+        print(f"{RED}Error fetching {url}: {e}{RESET}")
         return None
     finally:
         if response:
@@ -63,12 +70,12 @@ def upload_to_supabase(slug, data, category_name):
         storage_resp = requests.post(storage_url, headers=headers, data=storage_data)
         
         if storage_resp.status_code == 400:
-            print(f"  Warning: 400 Bad Request for {slug}. Response: {storage_resp.text}")
+            print(f"{YELLOW}  Warning: 400 Bad Request for {slug}. Response: {storage_resp.text}{RESET}")
             
         storage_resp.raise_for_status()
         json_url = f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/{slug}.json"
     except Exception as e:
-        print(f"Storage Upload Error for {slug}: {e}")
+        print(f"{RED}Storage Upload Error for {slug}: {e}{RESET}")
         return
 
     # 2. Upsert to Library Table
@@ -91,7 +98,7 @@ def upload_to_supabase(slug, data, category_name):
         db_resp = requests.post(db_url, headers=db_headers, data=json.dumps(payload))
         db_resp.raise_for_status()
     except Exception as e:
-        print(f"Database Upsert Error for {slug}: {e}")
+        print(f"{RED}Database Upsert Error for {slug}: {e}{RESET}")
 
 def scrape_prayer(url, category_name):
     """Scrape a single prayer in all available languages."""
@@ -102,12 +109,13 @@ def scrape_prayer(url, category_name):
     # Get English Title
     title_el = soup.find("p", id="stitle")
     title_english = title_el.text.strip() if title_el else "Unknown Title"
-    slug = slugify(title_english)
+    url_slug = url.split('/')[-1].replace('.html', '')
+    slug = f"{url_slug}-{slugify(category_name)}"
 
     # Check if already exists locally
     local_path = f"prayers/{slug}.json"
     if os.path.exists(local_path):
-        print(f"Skipping {title_english} (Already exists)")
+        print(f"{YELLOW}  Skipping {slug} (Already exists){RESET}")
         return None
 
     # Language Map
@@ -163,18 +171,18 @@ def scrape_prayer(url, category_name):
     return slug
 
 def main():
-    print("Starting Pooja Room Scraper...")
+    print(f"{CYAN}Starting Pooja Room Scraper...{RESET}")
     WANTED_CATEGORIES = ["Ganesha Stotrams", "Shiva Stotrams", "Vishnu Stotrams", "Sri Rama Stotrams", "Sri Krishna Stotrams", "Hanuma Stotrams", "Devi Stotrams", "Durga Stotrams", "Lakshmi Stotrams", "Saraswati Stotrams", "Surya Bhagavan Stotrams", "Subrahmanya Swamy Stotrams", "Daily Prayers", "Nitya Parayana Slokas", "Ashtakams", "Adi Shankaracharya Stotrams"]
     base_url = "https://www.vignanam.org/"
     soup = get_soup(base_url)
     if not soup:
-        print("Failed to fetch homepage.")
+        print(f"{RED}Failed to fetch homepage.{RESET}")
         return
 
     processed_count = 0
     tree = soup.find("ul", class_="aqtree3clickable")
     if not tree:
-        print("Could not find prayer tree.")
+        print(f"{RED}Could not find prayer tree.{RESET}")
         return
 
     for li in tree.find_all("li", recursive=False):
@@ -189,7 +197,7 @@ def main():
         if category_name not in WANTED_CATEGORIES:
             continue
 
-        print(f"\nScraping Category: {category_name}")
+        print(f"\n{CYAN}Scraping Category: {category_name}{RESET}")
 
         # Find all prayers in this category
         prayer_links = li.find_all("a", class_="link4")
@@ -197,7 +205,7 @@ def main():
             href = a.get("href", "")
             if href.startswith("english/"):
                 full_url = urljoin(base_url, href)
-                print(f"  Processing: {full_url}")
+                print(f"{CYAN}  Processing: {full_url}{RESET}")
                 
                 start_prayer_time = time.time()
                 slug = scrape_prayer(full_url, category_name)
@@ -205,13 +213,13 @@ def main():
                     end_prayer_time = time.time()
                     duration = end_prayer_time - start_prayer_time
                     processed_count += 1
-                    print(f"  Successfully processed: {slug} in {duration:.2f} seconds")
+                    print(f"{GREEN}  Successfully processed: {slug} in {duration:.2f} seconds{RESET}")
                 
                 if TEST_MODE and processed_count >= 3:
-                    print("\nTEST_MODE: Processed 3 prayers. Stopping.")
+                    print(f"\n{YELLOW}TEST_MODE: Processed 3 prayers. Stopping.{RESET}")
                     return
 
-    print(f"\nScraping Complete. Total processed: {processed_count}")
+    print(f"\n{GREEN}Scraping Complete. Total processed: {processed_count}{RESET}")
 
 if __name__ == "__main__":
     main()
