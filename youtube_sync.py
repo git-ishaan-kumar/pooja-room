@@ -50,17 +50,34 @@ def sync_youtube():
 
     print(f"Found {len(records)} records. Starting sync...")
 
-    for record in records:
-        title = record.get("title") # In scraper.py, payload['title'] = data["title_english"]
+    for index, record in enumerate(records):
+        title = record.get("title") 
         slug = record.get("id")
         
         if not title or not slug:
             print(f"Skipping record with missing title or id: {record}")
             continue
 
-        print(f"Processing: {title} ({slug})")
+        file_path = f"{slug}.json"
         
-        # 1. Get YouTube ID
+        # 1. Download JSON first to check if we already have the YouTube ID
+        try:
+            storage_response = supabase.storage.from_(SUPABASE_BUCKET).download(file_path)
+            prayer_data = json.loads(storage_response.decode('utf-8'))
+            
+            # --- RESUME LOGIC ---
+            if "youtube_id" in prayer_data and prayer_data["youtube_id"]:
+                print(f"[{index+1}/{len(records)}] Skipping {title}: Already synced.")
+                continue
+            # --------------------
+
+        except Exception as e:
+            print(f"  Error downloading {file_path}: {e}")
+            continue
+
+        print(f"[{index+1}/{len(records)}] Processing: {title}")
+        
+        # 2. Get YouTube ID (only if we didn't skip)
         youtube_id = get_youtube_id(title)
         if not youtube_id:
             print(f"  No YouTube video found for '{title}'. Skipping.")
@@ -68,20 +85,10 @@ def sync_youtube():
         
         print(f"  Found YouTube ID: {youtube_id}")
 
-        # 2. Download JSON from storage
-        file_path = f"{slug}.json"
-        try:
-            storage_response = supabase.storage.from_(SUPABASE_BUCKET).download(file_path)
-            # storage_response is bytes
-            prayer_data = json.loads(storage_response.decode('utf-8'))
-        except Exception as e:
-            print(f"  Error downloading {file_path}: {e}")
-            continue
-
-        # 3. Update JSON
+        # 3. Update the local dictionary
         prayer_data["youtube_id"] = youtube_id
 
-        # 4. Upload updated JSON
+        # 4. Upload updated JSON back to Supabase
         try:
             updated_json = json.dumps(prayer_data, ensure_ascii=False, indent=2).encode('utf-8')
             supabase.storage.from_(SUPABASE_BUCKET).upload(
@@ -91,7 +98,7 @@ def sync_youtube():
             )
             print(f"  Successfully updated and uploaded {file_path}")
         except Exception as e:
-            # If upload fails, try update (though x-upsert should handle it)
+            # Fallback update if upload/upsert fails
             try:
                 supabase.storage.from_(SUPABASE_BUCKET).update(
                     path=file_path,
@@ -102,7 +109,7 @@ def sync_youtube():
             except Exception as e2:
                 print(f"  Error uploading {file_path}: {e2}")
 
-        # Wait to stay safe
+        # Wait 1 second to be a good citizen
         time.sleep(1)
 
 if __name__ == "__main__":
