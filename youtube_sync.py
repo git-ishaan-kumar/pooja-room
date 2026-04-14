@@ -27,38 +27,38 @@ def get_youtube_id(title_english):
             ["yt-dlp", "--get-id", "--default-search", "ytsearch1", query],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
+            timeout=30 # Prevent yt-dlp from hanging forever
         )
         video_id = result.stdout.strip()
         if video_id:
             return video_id
-    except subprocess.CalledProcessError as e:
-        print(f"Error searching YouTube for '{title_english}': {e}")
     except Exception as e:
-        print(f"Unexpected error for '{title_english}': {e}")
+        print(f"  Warning: yt-dlp search failed for '{title_english}': {e}")
     return None
 
 def sync_youtube():
-    print("Fetching records from library table...")
+    print("Fetching records from library table (requesting up to 2000)...")
     try:
-        # Fetch all records from library table
-        response = supabase.table("library").select("*").execute()
+        # FIX: Using .range(0, 2000) to bypass the default 1000 record limit
+        response = supabase.table("library").select("*").range(0, 2000).execute()
         records = response.data
     except Exception as e:
         print(f"Error fetching from library: {e}")
         return
 
-    print(f"Found {len(records)} records. Starting sync...")
+    total_records = len(records)
+    print(f"Found {total_records} records. Starting sync...")
 
     for index, record in enumerate(records):
         title = record.get("title") 
         slug = record.get("id")
         
         if not title or not slug:
-            print(f"Skipping record with missing title or id: {record}")
             continue
 
         file_path = f"{slug}.json"
+        counter_prefix = f"[{index+1}/{total_records}]"
         
         # 1. Download JSON first to check if we already have the YouTube ID
         try:
@@ -67,17 +67,18 @@ def sync_youtube():
             
             # --- RESUME LOGIC ---
             if "youtube_id" in prayer_data and prayer_data["youtube_id"]:
-                print(f"[{index+1}/{len(records)}] Skipping {title}: Already synced.")
+                print(f"{counter_prefix} Skipping {title}: Already synced.")
                 continue
             # --------------------
 
         except Exception as e:
-            print(f"  Error downloading {file_path}: {e}")
+            # If the file doesn't exist or times out, we skip and log
+            print(f"{counter_prefix} Error downloading {file_path}: {e}")
             continue
 
-        print(f"[{index+1}/{len(records)}] Processing: {title}")
+        print(f"{counter_prefix} Processing: {title}")
         
-        # 2. Get YouTube ID (only if we didn't skip)
+        # 2. Get YouTube ID
         youtube_id = get_youtube_id(title)
         if not youtube_id:
             print(f"  No YouTube video found for '{title}'. Skipping.")
@@ -85,7 +86,7 @@ def sync_youtube():
         
         print(f"  Found YouTube ID: {youtube_id}")
 
-        # 3. Update the local dictionary
+        # 3. Update the dictionary
         prayer_data["youtube_id"] = youtube_id
 
         # 4. Upload updated JSON back to Supabase
@@ -98,7 +99,7 @@ def sync_youtube():
             )
             print(f"  Successfully updated and uploaded {file_path}")
         except Exception as e:
-            # Fallback update if upload/upsert fails
+            # Fallback if upload/upsert fails
             try:
                 supabase.storage.from_(SUPABASE_BUCKET).update(
                     path=file_path,
@@ -107,10 +108,10 @@ def sync_youtube():
                 )
                 print(f"  Successfully updated {file_path} via update()")
             except Exception as e2:
-                print(f"  Error uploading {file_path}: {e2}")
+                print(f"  Final error uploading {file_path}: {e2}")
 
-        # Wait 1 second to be a good citizen
-        time.sleep(1)
+        # Safety wait to avoid being blocked by YouTube or overwhelming the Pi
+        time.sleep(1.2)
 
 if __name__ == "__main__":
     sync_youtube()
