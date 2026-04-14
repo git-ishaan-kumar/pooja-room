@@ -5,3 +5,4 @@ python-dotenv
 python-slugify
 cloudscraper
 brotli
+yt-dlp
