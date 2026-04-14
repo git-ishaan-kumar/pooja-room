@@ -28,7 +28,7 @@ def get_youtube_id(title_english):
             capture_output=True,
             text=True,
             check=True,
-            timeout=30 # Prevent yt-dlp from hanging forever
+            timeout=30 
         )
         video_id = result.stdout.strip()
         if video_id:
@@ -38,19 +38,31 @@ def get_youtube_id(title_english):
     return None
 
 def sync_youtube():
-    print("Fetching records from library table (requesting up to 2000)...")
-    try:
-        # FIX: Using .range(0, 2000) to bypass the default 1000 record limit
-        response = supabase.table("library").select("*").range(0, 2000).execute()
-        records = response.data
-    except Exception as e:
-        print(f"Error fetching from library: {e}")
-        return
+    print("Fetching all records from library table (paginating to bypass 1000 limit)...")
+    all_records = []
+    start = 0
+    page_size = 1000
 
-    total_records = len(records)
-    print(f"Found {total_records} records. Starting sync...")
+    # Pagination Loop
+    while True:
+        try:
+            response = supabase.table("library").select("*").range(start, start + page_size - 1).execute()
+            batch = response.data
+            if not batch:
+                break
+            all_records.extend(batch)
+            print(f"  Fetched {len(all_records)} records...")
+            if len(batch) < page_size:
+                break
+            start += page_size
+        except Exception as e:
+            print(f"Error fetching from library: {e}")
+            return
 
-    for index, record in enumerate(records):
+    total_records = len(all_records)
+    print(f"Starting sync for {total_records} total records...")
+
+    for index, record in enumerate(all_records):
         title = record.get("title") 
         slug = record.get("id")
         
@@ -60,19 +72,17 @@ def sync_youtube():
         file_path = f"{slug}.json"
         counter_prefix = f"[{index+1}/{total_records}]"
         
-        # 1. Download JSON first to check if we already have the YouTube ID
+        # 1. Download JSON and check if synced
         try:
             storage_response = supabase.storage.from_(SUPABASE_BUCKET).download(file_path)
             prayer_data = json.loads(storage_response.decode('utf-8'))
             
-            # --- RESUME LOGIC ---
+            # RESUME LOGIC: Skip if already has a youtube_id
             if "youtube_id" in prayer_data and prayer_data["youtube_id"]:
-                print(f"{counter_prefix} Skipping {title}: Already synced.")
+                # Silent skip to keep the log clean
                 continue
-            # --------------------
 
         except Exception as e:
-            # If the file doesn't exist or times out, we skip and log
             print(f"{counter_prefix} Error downloading {file_path}: {e}")
             continue
 
@@ -81,15 +91,15 @@ def sync_youtube():
         # 2. Get YouTube ID
         youtube_id = get_youtube_id(title)
         if not youtube_id:
-            print(f"  No YouTube video found for '{title}'. Skipping.")
+            print(f"  No YouTube video found. Skipping.")
             continue
         
-        print(f"  Found YouTube ID: {youtube_id}")
+        print(f"  Found ID: {youtube_id}")
 
         # 3. Update the dictionary
         prayer_data["youtube_id"] = youtube_id
 
-        # 4. Upload updated JSON back to Supabase
+        # 4. Upload back to Supabase
         try:
             updated_json = json.dumps(prayer_data, ensure_ascii=False, indent=2).encode('utf-8')
             supabase.storage.from_(SUPABASE_BUCKET).upload(
@@ -97,20 +107,19 @@ def sync_youtube():
                 file=updated_json,
                 file_options={"content-type": "application/json", "x-upsert": "true"}
             )
-            print(f"  Successfully updated and uploaded {file_path}")
+            print(f"  Successfully updated {file_path}")
         except Exception as e:
-            # Fallback if upload/upsert fails
             try:
                 supabase.storage.from_(SUPABASE_BUCKET).update(
                     path=file_path,
                     file=updated_json,
                     file_options={"content-type": "application/json"}
                 )
-                print(f"  Successfully updated {file_path} via update()")
+                print(f"  Updated via update() fallback")
             except Exception as e2:
                 print(f"  Final error uploading {file_path}: {e2}")
 
-        # Safety wait to avoid being blocked by YouTube or overwhelming the Pi
+        # Rate limiting sleep
         time.sleep(1.2)
 
 if __name__ == "__main__":
