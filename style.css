@@ -91,6 +91,17 @@ button:active {
   justify-content: space-between;
 }
 
+/* 3-Column Center-Centering Logic */
+.nav-left, .nav-right {
+  flex: 1; /* Both side containers take equal space */
+  display: flex;
+  align-items: center;
+}
+
+.nav-right {
+  justify-content: flex-end;
+}
+
 /* Branding */
 .nav-brand {
   display: flex;
@@ -106,6 +117,7 @@ button:active {
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap; /* Prevent brand from wrapping */
 }
 
 /* Primary Navigation */
@@ -127,12 +139,11 @@ button:active {
 
 /* Global Search */
 .nav-search {
-  flex: 1;
-  display: flex;
-  justify-content: center;
+  /* No flex:1 here, fixed max-width and margin auto keeps it dead center */
+  width: 100%;
   max-width: 25rem;
-  margin: 0 1.5rem;
   position: relative;
+  margin: 0 1rem;
 }
 
 .nav-search input {
@@ -244,12 +255,193 @@ button:active {
 }
 
 /* Responsiveness */
+/* Dashboard Section */
+.dashboard-container {
+  max-width: 75rem;
+  margin: 0 auto;
+  padding: 6rem 2rem 4rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4rem;
+}
+
+.greeting-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.greeting-section h1 {
+  font-size: 2.5rem;
+  color: var(--text-primary);
+}
+
+.date-subtitle {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.section-header h2 {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.section-divider {
+  height: 0.0625rem;
+  background-color: var(--border-subtle);
+  width: 100%;
+}
+
+.later-header {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.later-header h2 {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 0.0625rem solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.btn-outline:hover {
+  border-color: var(--brand-saffron);
+  color: var(--text-primary);
+}
+
+/* Today's Grid (Big Cards) */
+.today-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  gap: 1.5rem;
+}
+
+.card-big {
+  background: var(--bg-surface);
+  border: 0.0625rem solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-top img {
+  width: 2rem;
+  height: 2rem;
+}
+
+.category-tag {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+/* Later Grid (Small Cards) */
+.later-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 1rem;
+}
+
+.card-small {
+  background: var(--bg-base);
+  border: 0.0625rem solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.card-small img {
+  width: 1.5rem;
+  height: 1.5rem;
+  opacity: 0.5;
+}
+
+.card-small-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.day-label {
+  font-size: 0.75rem;
+  color: var(--brand-saffron);
+}
+
+.small-title {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  border: 0.0625rem dashed var(--border-subtle);
+  border-radius: 0.5rem;
+  text-align: center;
+}
+
+.empty-state img {
+  width: 4rem;
+  height: 4rem;
+  opacity: 0.3;
+}
+
+.empty-text {
+  color: var(--text-secondary);
+  margin-top: 1rem;
+  font-size: 1rem;
+}
+
+.empty-btn {
+  margin-top: 1.5rem;
+}
+
 @media (max-width: 48em) {
-  .nav-search {
-    display: none; /* Collapses on mobile as per spec */
+  .dashboard-container {
+    padding-top: 5rem;
+    gap: 2.5rem;
   }
-  .nav-links {
-    display: none; /* Moves to hamburger/overlay - will implement in JS if needed */
+  .greeting-section h1 {
+    font-size: 2rem;
+  }
+  .today-grid, .later-grid {
+    grid-template-columns: 1fr;
   }
 }
 
