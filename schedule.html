@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Schedule | Pooja Room</title>
+    <link rel="icon" type="image/svg+xml" href="static/assets/icons/icon.svg">
+    <!-- Montserrat & Roboto Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Fuse.js for Fuzzy Search -->
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header id="navbar-container"></header>
+
+    <main class="schedule-container">
+        <div class="schedule-card">
+            <header class="schedule-header">
+                <h1>Edit Parayana Schedule</h1>
+                <p>Select a day to organize your prayers. Drag to reorder.</p>
+            </header>
+
+            <!-- Week Ribbon -->
+            <nav class="week-ribbon" id="week-ribbon">
+                <button class="day-pill" data-day="Sunday">S</button>
+                <button class="day-pill" data-day="Monday">M</button>
+                <button class="day-pill" data-day="Tuesday">T</button>
+                <button class="day-pill" data-day="Wednesday">W</button>
+                <button class="day-pill" data-day="Thursday">T</button>
+                <button class="day-pill" data-day="Friday">F</button>
+                <button class="day-pill" data-day="Saturday">S</button>
+            </nav>
+
+            <!-- Active Day Canvas -->
+            <section id="active-canvas">
+                <h2 class="active-canvas-header" id="active-day-title">Monday's Prayers</h2>
+                <div class="prayer-list" id="prayer-list">
+                    <!-- Items Injected by JS -->
+                </div>
+                <button class="add-btn" id="add-prayer-btn">
+                    <span>+</span> Add to <span id="add-btn-day">Monday</span>
+                </button>
+            </section>
+
+            <!-- Global Done Action -->
+            <footer class="schedule-footer">
+                <button class="btn-primary" id="save-schedule-btn" style="padding: 0.75rem 2rem; font-size: 1rem;">Save Schedule</button>
+            </footer>
+        </div>
+    </main>
+
+    <!-- Command Modal (Search Overlay) -->
+    <div class="modal-overlay" id="search-modal">
+        <div class="modal-dialog">
+            <div class="modal-search-area">
+                <input type="text" class="modal-search-input" id="modal-search-input" placeholder="Search 1,164 prayers...">
+            </div>
+            <div class="modal-results" id="modal-results">
+                <!-- Search results injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Config & Client -->
+    <script src="config.js"></script>
+    <script src="navbar.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 1. Auth Guard
+            const { data: { session } } = await window.supabase.auth.getSession();
+            if (!session) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const user = session.user;
+            let currentSchedule = {}; // Local state
+            let activeDay = "Monday";
+            let prayerMetadata = {}; // Cache for titles/icons
+            let allPrayers = []; // For search
+            let fuse = null;
+
+            const categoryIconMap = {
+                "Ganesha Stotrams": "ganesha-stotrams.svg",
+                "Shiva Stotrams": "shiva-stotrams.svg",
+                "Vishnu Stotrams": "vishnu-stotrams.svg",
+                "Sri Rama Stotrams": "sri-rama-stotrams.svg",
+                "Sri Krishna Stotrams": "sri-krishna-stotrams.svg",
+                "Hanuma Stotrams": "hanuma-stotrams.svg",
+                "Devi Stotrams": "devi-stotrams.svg",
+                "Durga Stotrams": "durga-stotrams.svg",
+                "Lakshmi Stotrams": "lakshmi-stotrams.svg",
+                "Saraswati Stotrams": "saraswati-stotrams.svg",
+                "Surya Bhagavan Stotrams": "surya-bhagavan-stotrams.svg",
+                "Subrahmanya Swamy Stotrams": "subrahmanya-swamy-stotrams.svg",
+                "Daily Prayers": "daily-prayers.svg",
+                "Nitya Parayana Slokas": "nitya-parayana-slokas.svg",
+                "Ashtakams": "ashtakams.svg",
+                "Adi Shankaracharya Stotrams": "adi-shankaracharya-stotrams.svg"
+            };
+            
+            // 2. Initial Data Load
+            async function initialize() {
+                // Fetch Profile & Schedule
+                const { data: profile, error } = await window.supabase
+                    .from('profiles')
+                    .select('schedule')
+                    .eq('id', user.id)
+                    .single();
+
+                if (error) {
+                    console.error("Error fetching schedule:", error.message);
+                    return;
+                }
+
+                currentSchedule = profile.schedule || {
+                    "Monday": [], "Tuesday": [], "Wednesday": [], "Thursday": [], 
+                    "Friday": [], "Saturday": [], "Sunday": []
+                };
+
+                // Fetch All Prayers Metadata (for Cache & Search)
+                const { data: libraryData } = await window.supabase
+                    .from('library')
+                    .select('id, title, category');
+                
+                if (libraryData) {
+                    allPrayers = libraryData;
+                    libraryData.forEach(m => prayerMetadata[m.id] = m);
+                    
+                    // Initialize Fuse.js
+                    fuse = new Fuse(allPrayers, {
+                        keys: ['title', 'category'],
+                        threshold: 0.3
+                    });
+                }
+
+                const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                activeDay = days[new Date().getDay()];
+                renderRibbon();
+                renderActiveDay();
+                setupModal();
+            }
+
+            function renderRibbon() {
+                document.querySelectorAll('.day-pill').forEach(pill => {
+                    const day = pill.getAttribute('data-day');
+                    pill.classList.toggle('active', day === activeDay);
+                    pill.onclick = () => {
+                        activeDay = day;
+                        renderRibbon();
+                        renderActiveDay();
+                    };
+                });
+            }
+
+            function renderActiveDay() {
+                const title = document.getElementById('active-day-title');
+                const addBtnDay = document.getElementById('add-btn-day');
+                const list = document.getElementById('prayer-list');
+                
+                title.textContent = `${activeDay}'s Prayers`;
+                addBtnDay.textContent = activeDay;
+                list.innerHTML = '';
+
+                const dayIds = currentSchedule[activeDay] || [];
+                
+                if (dayIds.length === 0) {
+                    list.innerHTML = `<p style="color: var(--text-secondary); text-align: center; padding: 2rem; font-size: 0.875rem;">No prayers scheduled for ${activeDay}.</p>`;
+                } else {
+                    dayIds.forEach((id, index) => {
+                        const prayer = prayerMetadata[id] || { title: "Unknown Prayer", category: "Daily Prayers" };
+                        const icon = categoryIconMap[prayer.category] || 'icon.svg';
+                        
+                        const item = document.createElement('div');
+                        item.className = 'draggable-item';
+                        item.draggable = true;
+                        item.dataset.index = index;
+                        item.innerHTML = `
+                            <div class="drag-handle">⋮⋮</div>
+                            <img src="static/assets/icons/${icon}" class="item-icon" alt="${prayer.category}">
+                            <span class="item-title">${prayer.title}</span>
+                            <button class="delete-btn" data-index="${index}">✕</button>
+                        `;
+
+                        item.addEventListener('dragstart', handleDragStart);
+                        item.addEventListener('dragover', handleDragOver);
+                        item.addEventListener('drop', handleDrop);
+                        item.addEventListener('dragend', handleDragEnd);
+
+                        item.querySelector('.delete-btn').onclick = () => {
+                            currentSchedule[activeDay].splice(index, 1);
+                            renderActiveDay();
+                        };
+
+                        list.appendChild(item);
+                    });
+                }
+            }
+
+            // Drag & Drop
+            let dragSourceIndex = null;
+            function handleDragStart(e) { dragSourceIndex = this.dataset.index; this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
+            function handleDragOver(e) { if (e.preventDefault) e.preventDefault(); return false; }
+            function handleDrop(e) {
+                if (e.stopPropagation) e.stopPropagation();
+                const targetIndex = this.dataset.index;
+                if (dragSourceIndex !== targetIndex) {
+                    const list = currentSchedule[activeDay];
+                    const movedItem = list.splice(dragSourceIndex, 1)[0];
+                    list.splice(targetIndex, 0, movedItem);
+                    renderActiveDay();
+                }
+                return false;
+            }
+            function handleDragEnd() { this.classList.remove('dragging'); }
+
+            // Modal Logic
+            function setupModal() {
+                const modal = document.getElementById('search-modal');
+                const openBtn = document.getElementById('add-prayer-btn');
+                const input = document.getElementById('modal-search-input');
+                const resultsEl = document.getElementById('modal-results');
+
+                openBtn.onclick = () => {
+                    modal.classList.add('show');
+                    input.focus();
+                    showSuggestions();
+                };
+
+                // Close on click outside
+                modal.onclick = (e) => {
+                    if (e.target === modal) modal.classList.remove('show');
+                };
+
+                input.oninput = (e) => {
+                    const query = e.target.value.trim();
+                    if (!fuse || query.length < 2) {
+                        showSuggestions();
+                        return;
+                    }
+                    const results = fuse.search(query).map(r => r.item).slice(0, 15);
+                    renderModalResults(results);
+                };
+
+                function showSuggestions() {
+                    // Similar to library, pick 15 random ones for diversity
+                    const shuffled = [...allPrayers].sort(() => 0.5 - Math.random());
+                    renderModalResults(shuffled.slice(0, 15));
+                }
+
+                function renderModalResults(results) {
+                    resultsEl.innerHTML = '';
+                    results.forEach(prayer => {
+                        const icon = categoryIconMap[prayer.category] || 'icon.svg';
+                        const item = document.createElement('div');
+                        item.className = 'modal-result-item';
+                        item.innerHTML = `
+                            <img src="static/assets/icons/${icon}" class="item-icon" style="margin-left:0; opacity: 0.6">
+                            <div style="display:flex; flex-direction:column">
+                                <span style="font-size: 1rem; color: var(--text-primary)">${prayer.title}</span>
+                                <span style="font-size: 0.75rem; color: var(--text-secondary)">${prayer.category}</span>
+                            </div>
+                            <span class="result-check">✓</span>
+                        `;
+                        item.onclick = () => {
+                            item.querySelector('.result-check').style.display = 'block';
+                            if (!currentSchedule[activeDay]) currentSchedule[activeDay] = [];
+                            currentSchedule[activeDay].push(prayer.id);
+                            setTimeout(() => {
+                                modal.classList.remove('show');
+                                input.value = '';
+                                renderActiveDay();
+                            }, 500);
+                        };
+                        resultsEl.appendChild(item);
+                    });
+                }
+            }
+
+            // Save Logic
+            document.getElementById('save-schedule-btn').onclick = async () => {
+                const btn = document.getElementById('save-schedule-btn');
+                btn.disabled = true;
+                btn.textContent = "Saving...";
+
+                const { error } = await window.supabase
+                    .from('profiles')
+                    .update({ schedule: currentSchedule })
+                    .eq('id', user.id);
+
+                if (error) {
+                    alert("Error saving: " + error.message);
+                    btn.disabled = false;
+                    btn.textContent = "Save Schedule";
+                } else {
+                    window.location.href = 'dashboard.html';
+                }
+            };
+
+            initialize();
+        });
+    </script>
+</body>
+</html>

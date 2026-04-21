@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings | Pooja Room</title>
+    <link rel="icon" type="image/svg+xml" href="static/assets/icons/icon.svg">
+    <!-- Montserrat & Roboto Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header id="navbar-container"></header>
+
+    <main class="settings-container">
+        <div class="settings-wrapper">
+            <header class="settings-header-stack">
+                <h1>Account Settings</h1>
+                <p>Manage your profile, preferences, and data.</p>
+            </header>
+
+            <!-- Card 1: Profile -->
+            <section class="settings-card">
+                <h2>Profile</h2>
+                <div class="avatar-section">
+                    <div class="avatar-large" id="avatar-initial">?</div>
+                    <div class="danger-text">
+                        <h3 id="profile-name-display">Loading...</h3>
+                        <p id="profile-email-display">...</p>
+                    </div>
+                </div>
+
+                <div class="settings-input-group">
+                    <label for="display-name">Display Name</label>
+                    <input type="text" id="display-name" placeholder="Your name">
+                </div>
+
+                <div class="settings-input-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" disabled>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end;">
+                    <button class="btn-primary" id="save-profile-btn">Save Profile</button>
+                </div>
+            </section>
+
+            <!-- Card 2: Reading Preferences -->
+            <section class="settings-card">
+                <h2>Reading Experience</h2>
+                
+                <div class="settings-input-group">
+                    <label for="default-lang">Default Language</label>
+                    <select id="default-lang">
+                        <option value="english">English</option>
+                        <option value="hindi">Hindi</option>
+                        <option value="devanagari">Devanagari</option>
+                        <option value="telugu">Telugu</option>
+                        <option value="tamil">Tamil</option>
+                        <option value="kannada">Kannada</option>
+                        <option value="malayalam">Malayalam</option>
+                        <option value="bengali">Bengali</option>
+                        <option value="marathi">Marathi</option>
+                        <option value="gujarati">Gujarati</option>
+                        <option value="odia">Odia</option>
+                    </select>
+                </div>
+
+                <div class="settings-input-group">
+                    <label>Prayer Text Size</label>
+                    <div class="segmented-control">
+                        <button class="segment-btn" data-size="small">Small</button>
+                        <button class="segment-btn active" data-size="medium">Medium</button>
+                        <button class="segment-btn" data-size="large">Large</button>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end;">
+                    <button class="btn-primary" id="save-prefs-btn">Save Preferences</button>
+                </div>
+            </section>
+
+            <!-- Card 3: Danger Zone -->
+            <section class="settings-card danger-card">
+                <h2>Danger Zone</h2>
+                
+                <div class="danger-row">
+                    <div class="danger-text">
+                        <h3>Reset Schedule</h3>
+                        <p>Remove all prayers from your weekly routine.</p>
+                    </div>
+                    <button class="btn-danger-outline" id="reset-schedule-btn">Reset Schedule</button>
+                </div>
+
+                <div class="danger-row">
+                    <div class="danger-text">
+                        <h3>Delete Account</h3>
+                        <p>Permanently delete your account and data.</p>
+                    </div>
+                    <button class="btn-danger-solid" id="delete-account-btn">Delete Account</button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Project Config & Client -->
+    <script src="config.js"></script>
+    <script src="navbar.js"></script>
+    <script src="app.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 1. Auth Guard
+            const { data: { session } } = await window.supabase.auth.getSession();
+            if (!session) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const user = session.user;
+            const displayNameInput = document.getElementById('display-name');
+            const emailInput = document.getElementById('email');
+            const avatarInitial = document.getElementById('avatar-initial');
+            const profileNameDisplay = document.getElementById('profile-name-display');
+            const profileEmailDisplay = document.getElementById('profile-email-display');
+
+            // Pre-fill
+            const initialName = user.user_metadata.display_name || "Devotee";
+            displayNameInput.value = initialName;
+            emailInput.value = user.email;
+            profileNameDisplay.textContent = initialName;
+            profileEmailDisplay.textContent = user.email;
+            avatarInitial.textContent = initialName.charAt(0).toUpperCase();
+
+            // 2. Profile Logic
+            document.getElementById('save-profile-btn').onclick = async () => {
+                const newName = displayNameInput.value.trim();
+                if (!newName) return;
+
+                const btn = document.getElementById('save-profile-btn');
+                btn.disabled = true;
+                btn.textContent = "Saving...";
+
+                // Update User Metadata
+                const { error: authError } = await window.supabase.auth.updateUser({
+                    data: { display_name: newName }
+                });
+
+                // Update Profiles table
+                const { error: profError } = await window.supabase
+                    .from('profiles')
+                    .update({ display_name: newName })
+                    .eq('id', user.id);
+
+                if (!authError && !profError) {
+                    alert("Profile updated!");
+                    window.location.reload();
+                } else {
+                    alert("Error: " + (authError?.message || profError?.message));
+                    btn.disabled = false;
+                    btn.textContent = "Save Profile";
+                }
+            };
+
+            // 3. Preferences Logic
+            let activeSize = localStorage.getItem('prayer-font-size') || 'medium';
+            const langSelect = document.getElementById('default-lang');
+            langSelect.value = localStorage.getItem('default-prayer-lang') || 'english';
+
+            // Segmented Control handling
+            const sizeBtns = document.querySelectorAll('.segment-btn');
+            sizeBtns.forEach(btn => {
+                const size = btn.getAttribute('data-size');
+                if (size === activeSize) btn.classList.add('active');
+                else btn.classList.remove('active');
+
+                btn.onclick = () => {
+                    sizeBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    activeSize = size;
+                };
+            });
+
+            document.getElementById('save-prefs-btn').onclick = () => {
+                localStorage.setItem('prayer-font-size', activeSize);
+                localStorage.setItem('default-prayer-lang', langSelect.value);
+                alert("Preferences saved locally!");
+            };
+
+            // 4. Danger Zone Logic
+            document.getElementById('reset-schedule-btn').onclick = async () => {
+                if (!confirm("Are you sure you want to clear your entire schedule? This cannot be undone.")) return;
+
+                const emptySchedule = {
+                    "Monday": [], "Tuesday": [], "Wednesday": [], "Thursday": [], 
+                    "Friday": [], "Saturday": [], "Sunday": []
+                };
+
+                const { error } = await window.supabase
+                    .from('profiles')
+                    .update({ schedule: emptySchedule })
+                    .eq('id', user.id);
+
+                if (!error) alert("Schedule cleared.");
+                else alert("Error clearing schedule: " + error.message);
+            };
+
+            document.getElementById('delete-account-btn').onclick = async () => {
+                const confirmed = confirm("CRITICAL: Are you absolutely sure? This will permanently delete your account and all saved parayana data.");
+                if (!confirmed) return;
+                
+                const finalCheck = prompt("Type 'DELETE' to confirm account destruction:");
+                if (finalCheck !== 'DELETE') return;
+
+                alert("Account deletion requested. In this V1 demo, please sign out. (Backend administrative API required for full deletion).");
+                await window.supabase.auth.signOut();
+                window.location.href = 'index.html';
+            };
+        });
+    </script>
+</body>
+</html>

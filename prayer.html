@@ -24,9 +24,14 @@
                     <span id="prayer-category" class="prayer-category-label">...</span>
                     <h1 id="prayer-title">Loading...</h1>
                 </div>
-                <button id="complete-btn" class="btn-complete" style="display: none;">
-                    <span>✓</span> Complete
-                </button>
+                <div class="header-actions" style="display: flex; gap: 0.75rem;">
+                    <button id="add-to-schedule-btn" class="btn-outline" style="display: none; padding: 0.5rem 1rem; font-size: 0.875rem;">
+                        + Add to Schedule
+                    </button>
+                    <button id="complete-btn" class="btn-complete" style="display: none;">
+                        <span>✓</span> Complete
+                    </button>
+                </div>
             </header>
 
             <!-- Language Track -->
@@ -45,6 +50,33 @@
             </section>
         </article>
     </main>
+
+    <!-- Add to Schedule Modal -->
+    <div class="modal-overlay" id="schedule-modal">
+        <div class="modal-dialog" style="height: auto; max-height: 90vh;">
+            <div class="modal-search-area" style="padding: 1.5rem; border-bottom: 0.0625rem solid var(--border-subtle);">
+                <h2 style="font-size: 1.25rem; color: var(--text-primary);">Add to Schedule</h2>
+                <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">Select a day to include this prayer.</p>
+            </div>
+            <div class="modal-results" style="padding: 1.5rem;">
+                <div class="week-ribbon" style="margin-bottom: 2rem;">
+                    <button class="day-pill" data-day="Monday">M</button>
+                    <button class="day-pill" data-day="Tuesday">T</button>
+                    <button class="day-pill" data-day="Wednesday">W</button>
+                    <button class="day-pill" data-day="Thursday">T</button>
+                    <button class="day-pill" data-day="Friday">F</button>
+                    <button class="day-pill" data-day="Saturday">S</button>
+                    <button class="day-pill" data-day="Sunday">S</button>
+                </div>
+
+                <div id="modal-day-list" class="prayer-list" style="margin-bottom: 2rem;">
+                    <!-- Existing prayers for selected day + new one -->
+                </div>
+
+                <button id="confirm-add-btn" class="btn-primary w-full">Save to Schedule</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Project Config & Client -->
     <script src="config.js"></script>
@@ -68,12 +100,40 @@
             const mediaContainer = document.getElementById('media-container');
             const scriptureText = document.getElementById('scripture-text');
             const completeBtn = document.getElementById('complete-btn');
+            const addToScheduleBtn = document.getElementById('add-to-schedule-btn');
+            const scheduleModal = document.getElementById('schedule-modal');
+
+            const categoryIconMap = {
+                "Ganesha Stotrams": "ganesha-stotrams.svg",
+                "Shiva Stotrams": "shiva-stotrams.svg",
+                "Vishnu Stotrams": "vishnu-stotrams.svg",
+                "Sri Rama Stotrams": "sri-rama-stotrams.svg",
+                "Sri Krishna Stotrams": "sri-krishna-stotrams.svg",
+                "Hanuma Stotrams": "hanuma-stotrams.svg",
+                "Devi Stotrams": "devi-stotrams.svg",
+                "Durga Stotrams": "durga-stotrams.svg",
+                "Lakshmi Stotrams": "lakshmi-stotrams.svg",
+                "Saraswati Stotrams": "saraswati-stotrams.svg",
+                "Surya Bhagavan Stotrams": "surya-bhagavan-stotrams.svg",
+                "Subrahmanya Swamy Stotrams": "subrahmanya-swamy-stotrams.svg",
+                "Daily Prayers": "daily-prayers.svg",
+                "Nitya Parayana Slokas": "nitya-parayana-slokas.svg",
+                "Ashtakams": "ashtakams.svg",
+                "Adi Shankaracharya Stotrams": "adi-shankaracharya-stotrams.svg"
+            };
 
             let prayerData = null;
-            let prayerContent = null; // The JSON from json_url
+            let prayerContent = null; 
+            let userSchedule = null;
+            let scheduleMetadata = {}; 
 
             async function loadPrayer() {
-                // 1. Fetch Metadata from library table
+                // Apply Font Size Preference
+                const savedSize = localStorage.getItem('prayer-font-size') || 'medium';
+                const sizeMap = { 'small': '1.1rem', 'medium': '1.25rem', 'large': '1.5rem' };
+                scriptureText.style.fontSize = sizeMap[savedSize];
+
+                // 1. Fetch Metadata from library table for CURRENT prayer
                 const { data: meta, error: metaErr } = await window.supabase
                     .from('library')
                     .select('*')
@@ -88,25 +148,193 @@
                 prayerData = meta;
                 titleEl.textContent = meta.title;
                 categoryEl.textContent = meta.category;
+                scheduleMetadata[meta.id] = meta; 
 
-                // 2. Fetch Full Content from Storage JSON
+                // 2. Fetch Content & Check Schedule
+                const { data: { session } } = await window.supabase.auth.getSession();
+                
+                if (session) {
+                    const { data: profile } = await window.supabase
+                        .from('profiles')
+                        .select('schedule')
+                        .eq('id', session.user.id)
+                        .single();
+                    
+                    userSchedule = profile?.schedule || {
+                        "Monday":[], "Tuesday":[], "Wednesday":[], "Thursday":[], "Friday":[], "Saturday":[], "Sunday":[]
+                    };
+
+                    // Fetch metadata for all prayers in schedule to show them in the modal
+                    const allScheduleIds = [...new Set(Object.values(userSchedule).flat())];
+                    if (allScheduleIds.length > 0) {
+                        const { data: schedMeta } = await window.supabase
+                            .from('library')
+                            .select('id, title, category')
+                            .in('id', allScheduleIds);
+                        if (schedMeta) {
+                            schedMeta.forEach(m => scheduleMetadata[m.id] = m);
+                        }
+                    }
+
+                    // Check if prayer is in schedule
+                    const isInSchedule = Object.values(userSchedule).flat().includes(prayerId);
+                    if (!isInSchedule) {
+                        addToScheduleBtn.style.display = 'block';
+                        setupScheduleModal(session.user.id);
+                    }
+                }
+
                 try {
                     const response = await fetch(meta.json_url);
                     prayerContent = await response.json();
                     
                     renderLanguageTrack();
-                    renderScripture('english'); // Default
+                    
+                    // Respect saved language preference
+                    const defaultLang = localStorage.getItem('default-prayer-lang') || 'english';
+                    const initialLang = prayerContent.body[defaultLang] ? defaultLang : 'english';
+                    renderScripture(initialLang);
                     renderMedia(prayerContent.youtube_id);
                 } catch (err) {
                     console.error("Error fetching prayer content:", err);
                     scriptureText.textContent = "Error loading prayer text.";
                 }
 
-                // 3. Handle Completion Button
+                // 3. Handle Completion Button & Status Check
                 if (fromDashboard) {
                     completeBtn.style.display = 'flex';
-                    completeBtn.addEventListener('click', handleCompletion);
+                    
+                    const startOfToday = new Date();
+                    startOfToday.setHours(0, 0, 0, 0);
+
+                    if (session) {
+                        const { data: existingLog } = await window.supabase
+                            .from('prayer_logs')
+                            .select('id')
+                            .eq('user_id', session.user.id)
+                            .eq('prayer_id', prayerId)
+                            .gte('completed_at', startOfToday.toISOString())
+                            .limit(1);
+
+                        if (existingLog && existingLog.length > 0) {
+                            completeBtn.disabled = true;
+                            completeBtn.classList.add('success');
+                            completeBtn.innerHTML = '<span>✓</span> Completed!';
+                        } else {
+                            completeBtn.addEventListener('click', handleCompletion);
+                        }
+                    }
                 }
+            }
+
+            function setupScheduleModal(userId) {
+                let selectedDay = "Monday";
+                let tempDayList = [];
+                let dragIdx = null;
+
+                addToScheduleBtn.onclick = () => {
+                    scheduleModal.classList.add('show');
+                    // Reset to a clean state each time modal opens
+                    tempDayList = [...userSchedule[selectedDay]];
+                    if (!tempDayList.includes(prayerId)) {
+                        tempDayList.push(prayerId);
+                    }
+                    updateModalView();
+                };
+
+                scheduleModal.onclick = (e) => {
+                    if (e.target === scheduleModal) scheduleModal.classList.remove('show');
+                };
+
+                scheduleModal.querySelectorAll('.day-pill').forEach(pill => {
+                    pill.onclick = () => {
+                        selectedDay = pill.getAttribute('data-day');
+                        // Refresh temp list for new day
+                        tempDayList = [...userSchedule[selectedDay]];
+                        if (!tempDayList.includes(prayerId)) {
+                            tempDayList.push(prayerId);
+                        }
+                        updateModalView();
+                    };
+                });
+
+                function updateModalView() {
+                    scheduleModal.querySelectorAll('.day-pill').forEach(p => 
+                        p.classList.toggle('active', p.getAttribute('data-day') === selectedDay)
+                    );
+
+                    const listEl = document.getElementById('modal-day-list');
+                    listEl.innerHTML = '';
+
+                    tempDayList.forEach((id, index) => {
+                        const isCurrent = id === prayerId;
+                        const meta = scheduleMetadata[id] || { title: "Loading...", category: "Daily Prayers" };
+                        const icon = categoryIconMap[meta.category] || 'icon.svg';
+
+                        const item = document.createElement('div');
+                        item.className = 'draggable-item';
+                        item.draggable = true;
+                        item.dataset.index = index;
+                        item.style.borderColor = isCurrent ? 'var(--brand-saffron)' : 'var(--border-subtle)';
+                        item.style.opacity = isCurrent ? '1' : '1'; // Keep solid for better visibility
+                        
+                        item.innerHTML = `
+                            <div class="drag-handle" style="pointer-events: none;">⋮⋮</div>
+                            <img src="static/assets/icons/${icon}" class="item-icon" style="width:1.25rem; height:1.25rem; margin:0 0.75rem; pointer-events: none;">
+                            <span class="item-title" style="font-size:0.9rem; pointer-events: none;">${meta.title}</span>
+                        `;
+
+                        item.addEventListener('dragstart', (e) => {
+                            dragIdx = index;
+                            item.classList.add('dragging');
+                            e.dataTransfer.effectAllowed = 'move';
+                        });
+
+                        item.addEventListener('dragover', (e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                        });
+
+                        item.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            if (dragIdx !== null && dragIdx !== index) {
+                                const moved = tempDayList.splice(dragIdx, 1)[0];
+                                tempDayList.splice(index, 0, moved);
+                                updateModalView();
+                            }
+                        });
+
+                        item.addEventListener('dragend', () => {
+                            item.classList.remove('dragging');
+                            dragIdx = null;
+                        });
+
+                        listEl.appendChild(item);
+                    });
+                }
+
+                document.getElementById('confirm-add-btn').onclick = async () => {
+                    const btn = document.getElementById('confirm-add-btn');
+                    btn.disabled = true;
+                    btn.textContent = "Updating...";
+
+                    userSchedule[selectedDay] = tempDayList;
+
+                    const { error } = await window.supabase
+                        .from('profiles')
+                        .update({ schedule: userSchedule })
+                        .eq('id', userId);
+
+                    if (!error) {
+                        scheduleModal.classList.remove('show');
+                        addToScheduleBtn.style.display = 'none';
+                        alert("Added to your schedule!");
+                    } else {
+                        alert("Error: " + error.message);
+                        btn.disabled = false;
+                        btn.textContent = "Save to Schedule";
+                    }
+                };
             }
 
             function renderLanguageTrack() {
@@ -117,12 +345,9 @@
                     "telugu", "tamil", "gujarati", "kannada", "odia", "malayalam"
                 ];
 
-                // Get available languages and sort them based on langOrder
                 const availableLangs = Object.keys(prayerContent.body).sort((a, b) => {
                     const idxA = langOrder.indexOf(a);
                     const idxB = langOrder.indexOf(b);
-                    
-                    // If not found in list, push to end
                     if (idxA === -1) return 1;
                     if (idxB === -1) return -1;
                     return idxA - idxB;
@@ -144,8 +369,7 @@
 
             function renderScripture(lang) {
                 const lines = prayerContent.body[lang] || [];
-                scriptureText.innerHTML = ''; // Clear existing
-                
+                scriptureText.innerHTML = '';
                 lines.forEach(stanza => {
                     if (stanza.trim().length > 0) {
                         const p = document.createElement('p');
@@ -177,31 +401,19 @@
                 const { data: { session } } = await window.supabase.auth.getSession();
                 if (!session) return;
 
-                // Visual Feedback
                 completeBtn.disabled = true;
                 completeBtn.classList.add('success');
                 completeBtn.innerHTML = '<span>✓</span> Completed!';
 
                 try {
-                    // Insert into prayer_logs
                     const { error } = await window.supabase
                         .from('prayer_logs')
-                        .insert([
-                            {
-                                user_id: session.user.id,
-                                prayer_id: prayerId
-                            }
-                        ]);
+                        .insert([{ user_id: session.user.id, prayer_id: prayerId }]);
 
                     if (error) throw error;
-
-                    // Brief delay for the user to see the "Completed!" state
-                    setTimeout(() => {
-                        window.location.href = 'dashboard.html';
-                    }, 1500);
+                    setTimeout(() => { window.location.href = 'dashboard.html'; }, 1500);
                 } catch (err) {
                     console.error("Error logging prayer:", err.message);
-                    // Revert UI on error so they can try again
                     completeBtn.disabled = false;
                     completeBtn.classList.remove('success');
                     completeBtn.innerHTML = '<span>✓</span> Complete';

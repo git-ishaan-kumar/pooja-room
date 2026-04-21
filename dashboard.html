@@ -18,15 +18,18 @@
 
     <main class="dashboard-container">
         <!-- Section 1 & 2: Greeting -->
-        <section class="greeting-section">
-            <h1 id="greeting-text">Good morning, User.</h1>
-            <p class="date-subtitle" id="date-text">Today is Monday, April 20</p>
+        <section class="greeting-section" style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h1 id="greeting-text">Good morning, User.</h1>
+                <p class="date-subtitle" id="date-text">Today is Monday, April 20</p>
+            </div>
+            <a href="schedule.html" class="btn-outline" style="margin-top: 0.5rem;">Edit Schedule</a>
         </section>
 
         <!-- Today's Parayana Section (Rendered via JS) -->
         <div id="today-section" style="display: none;">
             <div class="section-header">
-                <h2>Today's Parayana</h2>
+                <h2>Today's Prayers</h2>
                 <div class="section-divider"></div>
             </div>
             <div class="today-grid" id="today-grid">
@@ -137,6 +140,18 @@
                 "Adi Shankaracharya Stotrams": "adi-shankaracharya-stotrams.svg"
             };
 
+            // Fetch Today's Logs to check for completions
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            
+            const { data: todayLogs } = await window.supabase
+                .from('prayer_logs')
+                .select('prayer_id')
+                .eq('user_id', user.id)
+                .gte('completed_at', startOfToday.toISOString());
+
+            const completedToday = new Set(todayLogs?.map(l => l.prayer_id) || []);
+
             // Collect all unique IDs from the entire schedule to fetch details once
             const allScheduledIds = [...new Set(Object.values(schedule).flat())];
             
@@ -169,6 +184,7 @@
                     const prayer = prayerMap[id];
                     if (!prayer) return;
 
+                    const isDone = completedToday.has(id);
                     const icon = categoryIconMap[prayer.category] || 'icon.svg';
                     const card = document.createElement('div');
                     card.className = 'card-big';
@@ -178,7 +194,9 @@
                             <span class="category-tag">${prayer.category}</span>
                         </div>
                         <h3 class="card-title">${prayer.title}</h3>
-                        <a href="prayer.html?id=${prayer.id}&from=dashboard" class="btn-primary w-full" style="text-align: center;">Start Praying</a>
+                        <a href="prayer.html?id=${prayer.id}&from=dashboard" class="${isDone ? 'btn-outline' : 'btn-primary'} w-full" style="text-align: center;">
+                            ${isDone ? '✓ Done for Today' : 'Start Praying'}
+                        </a>
                     `;
                     todayGrid.appendChild(card);
                 });
