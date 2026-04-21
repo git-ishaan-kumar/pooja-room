@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reading Prayer | Pooja Room</title>
+    <link rel="icon" type="image/svg+xml" href="static/assets/icons/icon.svg">
+    <!-- Montserrat & Roboto Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header id="navbar-container"></header>
+
+    <main class="prayer-reader-container">
+        <article class="reading-card">
+            <!-- Header -->
+            <header class="prayer-header">
+                <div class="prayer-title-stack">
+                    <span id="prayer-category" class="prayer-category-label">...</span>
+                    <h1 id="prayer-title">Loading...</h1>
+                </div>
+                <button id="complete-btn" class="btn-complete" style="display: none;">
+                    <span>✓</span> Complete
+                </button>
+            </header>
+
+            <!-- Language Track -->
+            <nav class="language-track" id="lang-track">
+                <!-- Chips Injected by JS -->
+            </nav>
+
+            <!-- Media Player -->
+            <div class="media-container" id="media-container">
+                <!-- iframe or Empty State Injected by JS -->
+            </div>
+
+            <!-- Scripture Body -->
+            <section class="scripture-body" id="scripture-text">
+                <!-- Text Injected by JS -->
+            </section>
+        </article>
+    </main>
+
+    <!-- Project Config & Client -->
+    <script src="config.js"></script>
+    <script src="navbar.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const prayerId = urlParams.get('id');
+            const fromDashboard = urlParams.get('from') === 'dashboard';
+
+            if (!prayerId) {
+                window.location.href = 'library.html';
+                return;
+            }
+
+            const titleEl = document.getElementById('prayer-title');
+            const categoryEl = document.getElementById('prayer-category');
+            const langTrack = document.getElementById('lang-track');
+            const mediaContainer = document.getElementById('media-container');
+            const scriptureText = document.getElementById('scripture-text');
+            const completeBtn = document.getElementById('complete-btn');
+
+            let prayerData = null;
+            let prayerContent = null; // The JSON from json_url
+
+            async function loadPrayer() {
+                // 1. Fetch Metadata from library table
+                const { data: meta, error: metaErr } = await window.supabase
+                    .from('library')
+                    .select('*')
+                    .eq('id', prayerId)
+                    .single();
+
+                if (metaErr || !meta) {
+                    titleEl.textContent = "Prayer not found.";
+                    return;
+                }
+
+                prayerData = meta;
+                titleEl.textContent = meta.title;
+                categoryEl.textContent = meta.category;
+
+                // 2. Fetch Full Content from Storage JSON
+                try {
+                    const response = await fetch(meta.json_url);
+                    prayerContent = await response.json();
+                    
+                    renderLanguageTrack();
+                    renderScripture('english'); // Default
+                    renderMedia(prayerContent.youtube_id);
+                } catch (err) {
+                    console.error("Error fetching prayer content:", err);
+                    scriptureText.textContent = "Error loading prayer text.";
+                }
+
+                // 3. Handle Completion Button
+                if (fromDashboard) {
+                    completeBtn.style.display = 'flex';
+                    completeBtn.addEventListener('click', handleCompletion);
+                }
+            }
+
+            function renderLanguageTrack() {
+                if (!prayerContent || !prayerContent.body) return;
+                
+                const langOrder = [
+                    "english", "hindi", "devanagari", "bengali", "marathi", 
+                    "telugu", "tamil", "gujarati", "kannada", "odia", "malayalam"
+                ];
+
+                // Get available languages and sort them based on langOrder
+                const availableLangs = Object.keys(prayerContent.body).sort((a, b) => {
+                    const idxA = langOrder.indexOf(a);
+                    const idxB = langOrder.indexOf(b);
+                    
+                    // If not found in list, push to end
+                    if (idxA === -1) return 1;
+                    if (idxB === -1) return -1;
+                    return idxA - idxB;
+                });
+                
+                langTrack.innerHTML = '';
+                availableLangs.forEach(lang => {
+                    const chip = document.createElement('button');
+                    chip.className = `lang-chip ${lang === 'english' ? 'active' : ''}`;
+                    chip.textContent = lang.charAt(0).toUpperCase() + lang.slice(1);
+                    chip.addEventListener('click', () => {
+                        document.querySelectorAll('.lang-chip').forEach(c => c.classList.remove('active'));
+                        chip.classList.add('active');
+                        renderScripture(lang);
+                    });
+                    langTrack.appendChild(chip);
+                });
+            }
+
+            function renderScripture(lang) {
+                const lines = prayerContent.body[lang] || [];
+                scriptureText.innerHTML = ''; // Clear existing
+                
+                lines.forEach(stanza => {
+                    if (stanza.trim().length > 0) {
+                        const p = document.createElement('p');
+                        p.className = 'prayer-stanza';
+                        p.textContent = stanza;
+                        scriptureText.appendChild(p);
+                    }
+                });
+            }
+
+            function renderMedia(youtubeId) {
+                if (youtubeId) {
+                    mediaContainer.innerHTML = `
+                        <iframe src="https://www.youtube.com/embed/${youtubeId}?rel=0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowfullscreen></iframe>
+                    `;
+                } else {
+                    mediaContainer.innerHTML = `
+                        <div class="media-empty">
+                            <span style="font-size: 2rem; opacity: 0.5;">🎵</span>
+                            <p style="color: var(--text-secondary); font-size: 0.875rem;">Audio not available for this stotram</p>
+                        </div>
+                    `;
+                }
+            }
+
+            async function handleCompletion() {
+                const { data: { session } } = await window.supabase.auth.getSession();
+                if (!session) return;
+
+                // Visual Feedback
+                completeBtn.disabled = true;
+                completeBtn.classList.add('success');
+                completeBtn.innerHTML = '<span>✓</span> Completed!';
+
+                try {
+                    // Insert into prayer_logs
+                    const { error } = await window.supabase
+                        .from('prayer_logs')
+                        .insert([
+                            {
+                                user_id: session.user.id,
+                                prayer_id: prayerId
+                            }
+                        ]);
+
+                    if (error) throw error;
+
+                    // Brief delay for the user to see the "Completed!" state
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1500);
+                } catch (err) {
+                    console.error("Error logging prayer:", err.message);
+                    // Revert UI on error so they can try again
+                    completeBtn.disabled = false;
+                    completeBtn.classList.remove('success');
+                    completeBtn.innerHTML = '<span>✓</span> Complete';
+                    alert("Failed to save progress. Please try again.");
+                }
+            }
+
+            loadPrayer();
+        });
+    </script>
+</body>
+</html>

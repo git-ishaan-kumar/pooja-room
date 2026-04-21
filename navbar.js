@@ -25,6 +25,7 @@ function renderNavbar(user) {
                 ${user ? `
                 <nav class="nav-links">
                     <a href="dashboard.html" class="nav-link ${window.location.pathname.endsWith('dashboard.html') ? 'active' : ''}">Dashboard</a>
+                    <a href="library.html" class="nav-link ${window.location.pathname.endsWith('library.html') ? 'active' : ''}">Prayers</a>
                 </nav>
                 ` : ''}
             </div>
@@ -78,6 +79,16 @@ function renderNavbar(user) {
         // Close dropdown when clicking outside
         document.addEventListener('click', () => {
             dropdownMenu.classList.remove('show');
+        });
+    }
+
+    // Global Search Redirect Logic
+    const globalSearch = document.getElementById('global-search');
+    if (globalSearch) {
+        globalSearch.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && globalSearch.value.trim().length > 0) {
+                window.location.href = `library.html?q=${encodeURIComponent(globalSearch.value.trim())}`;
+            }
         });
     }
 }

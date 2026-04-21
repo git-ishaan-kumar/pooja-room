@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prayer Library | Pooja Room</title>
+    <link rel="icon" type="image/svg+xml" href="static/assets/icons/icon.svg">
+    <!-- Montserrat & Roboto Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Fuse.js for Fuzzy Search -->
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header id="navbar-container"></header>
+
+    <main class="library-container">
+        <!-- Section 2: Search Hero -->
+        <section class="search-hero">
+            <div class="search-header-stack">
+                <h1>Prayer Library</h1>
+                <p>Search 1,164 sacred stotrams by name or category.</p>
+            </div>
+            <div class="smart-search-container">
+                <span class="smart-search-icon">🔍</span>
+                <input type="text" id="library-search" class="smart-search-input" placeholder="Search prayers (e.g., 'Hanuman Chalisa')...">
+            </div>
+        </section>
+
+        <!-- Section 3: Results Grid -->
+        <section id="results-section">
+            <span class="results-label" id="results-label">Suggested Prayers</span>
+            <div class="library-grid" id="library-grid">
+                <!-- Cards Injected Here -->
+            </div>
+        </section>
+
+        <!-- Section 4: Empty State -->
+        <section id="library-empty" class="library-empty" style="display: none;">
+            <div class="library-empty-icon">📄❓</div>
+            <h3>No prayers found.</h3>
+            <p>We couldn't find anything matching your search. Try a different spelling or browse by category.</p>
+        </section>
+    </main>
+
+    <!-- Project Config & Client -->
+    <script src="config.js"></script>
+    <script src="navbar.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const libraryGrid = document.getElementById('library-grid');
+            const resultsLabel = document.getElementById('results-label');
+            const emptyState = document.getElementById('library-empty');
+            const searchInput = document.getElementById('library-search');
+
+            const categoryIconMap = {
+                "Ganesha Stotrams": "ganesha-stotrams.svg",
+                "Shiva Stotrams": "shiva-stotrams.svg",
+                "Vishnu Stotrams": "vishnu-stotrams.svg",
+                "Sri Rama Stotrams": "sri-rama-stotrams.svg",
+                "Sri Krishna Stotrams": "sri-krishna-stotrams.svg",
+                "Hanuma Stotrams": "hanuma-stotrams.svg",
+                "Devi Stotrams": "devi-stotrams.svg",
+                "Durga Stotrams": "durga-stotrams.svg",
+                "Lakshmi Stotrams": "lakshmi-stotrams.svg",
+                "Saraswati Stotrams": "saraswati-stotrams.svg",
+                "Surya Bhagavan Stotrams": "surya-bhagavan-stotrams.svg",
+                "Subrahmanya Swamy Stotrams": "subrahmanya-swamy-stotrams.svg",
+                "Daily Prayers": "daily-prayers.svg",
+                "Nitya Parayana Slokas": "nitya-parayana-slokas.svg",
+                "Ashtakams": "ashtakams.svg",
+                "Adi Shankaracharya Stotrams": "adi-shankaracharya-stotrams.svg"
+            };
+
+            let allPrayers = [];
+            let fuse = null;
+
+            function renderCards(prayers) {
+                libraryGrid.innerHTML = '';
+                if (prayers.length === 0) {
+                    libraryGrid.style.display = 'none';
+                    resultsLabel.style.display = 'none';
+                    emptyState.style.display = 'flex';
+                    return;
+                }
+
+                libraryGrid.style.display = 'grid';
+                resultsLabel.style.display = 'block';
+                emptyState.style.display = 'none';
+
+                prayers.forEach(prayer => {
+                    const icon = categoryIconMap[prayer.category] || 'icon.svg';
+                    const card = document.createElement('div');
+                    card.className = 'card-library';
+                    card.innerHTML = `
+                        <div class="library-card-top">
+                            <img src="static/assets/icons/${icon}" alt="${prayer.category}">
+                            <span class="library-category-tag">${prayer.category}</span>
+                        </div>
+                        <h3 class="library-card-title">${prayer.title}</h3>
+                        <a href="prayer.html?id=${prayer.id}" class="btn-ghost-arrow">Open Prayer &rarr;</a>
+                    `;
+                    libraryGrid.appendChild(card);
+                });
+            }
+
+            // Load All Metadata for Local Fuzzy Search
+            async function initializeLibrary() {
+                // Fetch all prayers (id, title, category) - small enough payload (~150kb)
+                const { data, error } = await window.supabase
+                    .from('library')
+                    .select('id, title, category');
+                
+                if (error) {
+                    console.error("Error initializing library:", error.message);
+                    return;
+                }
+
+                allPrayers = data;
+
+                // Initialize Fuse.js
+                const fuseOptions = {
+                    keys: ['title', 'category'],
+                    threshold: 0.3, // Lower is stricter, 0.3 is good balance for typos
+                    distance: 100
+                };
+                fuse = new Fuse(allPrayers, fuseOptions);
+
+                // Handle URL Parameters (from Navbar Search) or Initial Load
+                const urlParams = new URLSearchParams(window.location.search);
+                const queryParam = urlParams.get('q');
+                if (queryParam) {
+                    searchInput.value = queryParam;
+                    performSearch(queryParam);
+                } else {
+                    loadSuggested();
+                }
+            }
+
+            // Suggested View: 24 Random prayers from various categories
+            function loadSuggested() {
+                const shuffled = [...allPrayers].sort(() => 0.5 - Math.random());
+                resultsLabel.textContent = "Suggested Prayers";
+                renderCards(shuffled.slice(0, 24));
+            }
+
+            // Fuzzy Search Logic
+            function performSearch(query) {
+                if (query.length === 0) {
+                    loadSuggested();
+                    return;
+                }
+
+                resultsLabel.textContent = `Search results for "${query}"`;
+                const searchResults = fuse.search(query);
+                
+                // Fuse.js returns objects wrapped in a 'item' property
+                const results = searchResults.map(result => result.item);
+                renderCards(results.slice(0, 50)); // Limit to top 50 matches
+            }
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.trim();
+                performSearch(query); // Instant local search
+            });
+
+            initializeLibrary();
+        });
+    </script>
+</body>
+</html>
