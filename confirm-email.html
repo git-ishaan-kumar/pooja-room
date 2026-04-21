@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Email | Pooja Room</title>
+    <!-- Montserrat & Roboto Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header id="navbar-container"></header>
+
+    <div class="auth-container">
+        <div class="auth-card" style="text-align: center;">
+            <div class="auth-header" style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">✉️</div>
+                <h1>Confirm your email</h1>
+                <p>We've sent a magic link to your inbox.</p>
+            </div>
+
+            <p style="color: var(--text-secondary); margin-bottom: 2rem; font-size: 0.875rem;">
+                Please click the link in the email to verify your account and start your devotion.
+            </p>
+
+            <a href="login.html" class="btn-primary w-full" style="display: block; padding: 0.75rem 0;">Return to Sign In</a>
+            
+            <div class="auth-footer">
+                Didn't get the email? <br>
+                <span style="font-size: 0.75rem;">Check your spam folder or try registering again.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Config & Client -->
+    <script src="config.js"></script>
+    <script src="navbar.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

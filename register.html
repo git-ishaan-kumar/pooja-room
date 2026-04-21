@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register | Pooja Room</title>
+    <!-- Montserrat & Roboto Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header id="navbar-container"></header>
+
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1>Create your account</h1>
+            </div>
+
+            <form id="register-form" novalidate>
+                <div class="form-group">
+                    <label for="display-name">Display Name</label>
+                    <input type="text" id="display-name" placeholder="Arjun" required>
+                    <span id="name-error" class="error-text"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" placeholder="name@example.com" required>
+                    <span id="email-error" class="error-text">Please enter a valid email address.</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                    <span class="password-toggle" data-target="password">👁️</span>
+                    <span id="password-error" class="error-text"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm-password">Confirm Password</label>
+                    <input type="password" id="confirm-password" placeholder="••••••••" required>
+                    <span class="password-toggle" data-target="confirm-password">👁️</span>
+                    <span id="confirm-error" class="error-text">Passwords do not match.</span>
+                </div>
+
+                <button type="submit" class="btn-primary w-full" id="submit-btn">Register</button>
+                
+                <div id="general-error" class="error-text" style="text-align: center; margin-top: 1rem;"></div>
+            </form>
+
+            <div class="auth-footer">
+                Already have an account? <a href="login.html">Sign In</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Config & Client -->
+    <script src="config.js"></script>
+    <script src="navbar.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('register-form');
+            const submitBtn = document.getElementById('submit-btn');
+            const generalError = document.getElementById('general-error');
+
+            // Password Toggle Logic
+            document.querySelectorAll('.password-toggle').forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    const targetId = toggle.getAttribute('data-target');
+                    const input = document.getElementById(targetId);
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        toggle.textContent = '🔒';
+                    } else {
+                        input.type = 'password';
+                        toggle.textContent = '👁️';
+                    }
+                });
+            });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // Reset states
+                generalError.style.display = 'none';
+                document.querySelectorAll('input').forEach(i => i.classList.remove('error'));
+                document.querySelectorAll('.error-text').forEach(t => t.style.display = 'none');
+
+                const displayName = document.getElementById('display-name').value.trim();
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value;
+                const confirmPassword = document.getElementById('confirm-password').value;
+
+                let hasError = false;
+
+                // 1. Display Name Validation
+                const nameInput = document.getElementById('display-name');
+                const nameErr = document.getElementById('name-error');
+                if (displayName.length < 2) {
+                    nameInput.classList.add('error');
+                    nameErr.textContent = "Display name is too short (min 2 chars).";
+                    nameErr.style.display = 'block';
+                    hasError = true;
+                } else if (displayName.length > 20) {
+                    nameInput.classList.add('error');
+                    nameErr.textContent = "Display name is too long (max 20 chars).";
+                    nameErr.style.display = 'block';
+                    hasError = true;
+                }
+
+                // 2. Email Validation
+                const emailInput = document.getElementById('email');
+                if (!emailInput.checkValidity()) {
+                    emailInput.classList.add('error');
+                    document.getElementById('email-error').style.display = 'block';
+                    hasError = true;
+                }
+
+                // 3. Password Validation
+                const passInput = document.getElementById('password');
+                const passErr = document.getElementById('password-error');
+                if (password.length < 6) {
+                    passInput.classList.add('error');
+                    passErr.textContent = "Password is too short (min 6 chars).";
+                    passErr.style.display = 'block';
+                    hasError = true;
+                } else if (password.length > 20) {
+                    passInput.classList.add('error');
+                    passErr.textContent = "Password is too long (max 20 chars).";
+                    passErr.style.display = 'block';
+                    hasError = true;
+                }
+
+                // 4. Confirm Password Validation
+                const confirmInput = document.getElementById('confirm-password');
+                if (password !== confirmPassword) {
+                    confirmInput.classList.add('error');
+                    document.getElementById('confirm-error').style.display = 'block';
+                    hasError = true;
+                }
+
+                if (hasError) return;
+
+                // Supabase Logic
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Creating account...';
+
+                try {
+                    const { data, error } = await window.supabase.auth.signUp({
+                        email,
+                        password,
+                        options: {
+                            data: {
+                                display_name: displayName
+                            }
+                        }
+                    });
+
+                    if (error) throw error;
+
+                    if (data.user) {
+                        // Success: Redirect to dedicated confirmation page
+                        window.location.href = 'confirm-email.html';
+                    }
+                } catch (error) {
+                    generalError.textContent = error.message;
+                    generalError.style.display = 'block';
+                    console.error("Registration Error:", error.message);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Register';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

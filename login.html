@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | Pooja Room</title>
+    <!-- Montserrat & Roboto Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header id="navbar-container"></header>
+
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1>Welcome back</h1>
+                <p>Sign in to your pooja room.</p>
+            </div>
+
+            <form id="login-form" novalidate>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" placeholder="name@example.com" required>
+                    <span id="email-error" class="error-text">Please enter a valid email address.</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                    <span class="password-toggle" data-target="password">👁️</span>
+                    <span id="password-error" class="error-text">Please enter your password.</span>
+                </div>
+
+                <button type="submit" class="btn-primary w-full" id="submit-btn">Sign In</button>
+                
+                <div id="general-error" class="error-text" style="text-align: center; margin-top: 1rem;"></div>
+            </form>
+
+            <div class="auth-footer">
+                Don't have an account? <a href="register.html">Register</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Config & Client -->
+    <script src="config.js"></script>
+    <script src="navbar.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('login-form');
+            const submitBtn = document.getElementById('submit-btn');
+            const generalError = document.getElementById('general-error');
+
+            // Password Toggle Logic
+            document.querySelectorAll('.password-toggle').forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    const targetId = toggle.getAttribute('data-target');
+                    const input = document.getElementById(targetId);
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        toggle.textContent = '🔒';
+                    } else {
+                        input.type = 'password';
+                        toggle.textContent = '👁️';
+                    }
+                });
+            });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // Reset states
+                generalError.style.display = 'none';
+                document.querySelectorAll('input').forEach(i => i.classList.remove('error'));
+                document.querySelectorAll('.error-text').forEach(t => t.style.display = 'none');
+
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value;
+
+                let hasError = false;
+
+                // 1. Email Validation
+                const emailInput = document.getElementById('email');
+                if (!emailInput.checkValidity() || !email) {
+                    emailInput.classList.add('error');
+                    document.getElementById('email-error').style.display = 'block';
+                    hasError = true;
+                }
+
+                // 2. Password Validation
+                const passInput = document.getElementById('password');
+                if (!password) {
+                    passInput.classList.add('error');
+                    document.getElementById('password-error').style.display = 'block';
+                    hasError = true;
+                }
+
+                if (hasError) return;
+
+                // Supabase Logic
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Signing in...';
+
+                try {
+                    const { data, error } = await window.supabase.auth.signInWithPassword({
+                        email,
+                        password
+                    });
+
+                    if (error) throw error;
+
+                    if (data.user) {
+                        // Success: Redirect to Dashboard
+                        window.location.href = 'dashboard.html';
+                    }
+                } catch (error) {
+                    generalError.textContent = error.message;
+                    generalError.style.display = 'block';
+                    // Apply crimson border to both fields on general auth failure
+                    document.getElementById('email').classList.add('error');
+                    document.getElementById('password').classList.add('error');
+                    console.error("Login Error:", error.message);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Sign In';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
