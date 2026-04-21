@@ -15,12 +15,63 @@
 <body>
     <header id="navbar-container"></header>
     <main id="app">
-        <!-- Content injected by Step 5 -->
+        <section class="hero-container">
+            <!-- Central Text Stack -->
+            <div class="text-stack">
+                <h1>1,164 Hindu prayers. <span>Uninterrupted devotion.</span></h1>
+                <p>Pooja Room is the digital library for Hindu prayers. Access structured texts across 19 regional languages with YouTube audios.</p>
+                <a href="register.html" class="btn-primary cta-btn">Start Praying</a>
+                
+                <!-- Mobile Grid Fallback -->
+                <div class="mobile-icons-grid" id="mobile-icons"></div>
+            </div>
+
+            <!-- Radial Constellation -->
+            <div class="constellation-wrapper" id="radial-icons"></div>
+        </section>
     </main>
 
     <!-- Project Config & Client -->
     <script src="config.js"></script>
     <script src="navbar.js"></script>
     <script src="app.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Redirect if already logged in
+            const { data: { session } } = await window.supabase.auth.getSession();
+            if (session) {
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            const icons = [
+                'ganesha-stotrams.svg', 'shiva-stotrams.svg', 'vishnu-stotrams.svg', 'sri-rama-stotrams.svg',
+                'sri-krishna-stotrams.svg', 'hanuma-stotrams.svg', 'devi-stotrams.svg', 'durga-stotrams.svg',
+                'lakshmi-stotrams.svg', 'saraswati-stotrams.svg', 'surya-bhagavan-stotrams.svg', 'subrahmanya-swamy-stotrams.svg',
+                'daily-prayers.svg', 'nitya-parayana-slokas.svg', 'ashtakams.svg', 'adi-shankaracharya-stotrams.svg'
+            ];
+
+            const radialContainer = document.getElementById('radial-icons');
+            const mobileContainer = document.getElementById('mobile-icons');
+
+            icons.forEach((icon, index) => {
+                const path = `static/assets/icons/${icon}`;
+                
+                // For Radial
+                const imgRadial = document.createElement('img');
+                imgRadial.src = path;
+                imgRadial.className = 'constellation-icon';
+                imgRadial.alt = icon;
+                radialContainer.appendChild(imgRadial);
+
+                // For Mobile Grid
+                const imgMobile = document.createElement('img');
+                imgMobile.src = path;
+                imgMobile.alt = icon;
+                mobileContainer.appendChild(imgMobile);
+            });
+        });
+    </script>
 </body>
 </html>
