@@ -25,10 +25,12 @@ def get_youtube_id_masterpiece(title_english):
     Return the ID of the most viewed video.
     """
     query = f"{title_english} chanting"
+    search_query = f"ytsearch5:{query}"
+    
     try:
-        # Command: yt-dlp --dump-json --flat-playlist --default-search "ytsearch5" "{query}"
+        # Command: yt-dlp --dump-json --flat-playlist "ytsearch5:{query}"
         result = subprocess.run(
-            ["yt-dlp", "--dump-json", "--flat-playlist", "--default-search", "ytsearch5", query],
+            ["yt-dlp", "--dump-json", "--flat-playlist", search_query],
             capture_output=True,
             text=True,
             check=True,
