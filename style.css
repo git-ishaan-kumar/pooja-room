@@ -1,0 +1,399 @@
+/* 
+ * POOJA ROOM: GLOBAL STYLES
+ * Theme: Saffron Modernism
+ */
+
+:root {
+    /* Colors - The Foundation */
+    --bg-base: #171717;         /* Deep Charcoal */
+    --bg-surface: #1E1E1E;      /* Elevated Slate */
+    --border-low: #2E2E2E;      /* Low-contrast border */
+    
+    /* Colors - The Energy */
+    --saffron: #FF9933;         /* Vibrant Saffron Orange */
+    --crimson: #B13B3B;         /* Muted Crimson */
+    
+    /* Colors - The Ink */
+    --text-primary: #EDEDED;    /* Near-white */
+    --text-secondary: #A0A0A0;  /* Muted stone gray */
+    
+    /* Typography */
+    --font-main: 'Montserrat', sans-serif;
+}
+
+/* Reset & Base */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+    transition: all 0.2s ease;
+}
+
+/* Scrollbar Styling (Minimalist) */
+::-webkit-scrollbar {
+    width: 0.5rem;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-low);
+    border-radius: 0.25rem;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+/* Global Container */
+#app {
+    min-height: 100vh;
+}
+
+/* Navbar */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4rem;
+    background-color: rgba(23, 23, 23, 0.85);
+    backdrop-filter: blur(0.75rem);
+    -webkit-backdrop-filter: blur(0.75rem);
+    border-bottom: 0.0625rem solid var(--border-low);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+    z-index: 1000;
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.nav-logo {
+    height: 2rem;
+    width: auto;
+}
+
+.nav-links {
+    display: flex;
+    gap: 1.5rem;
+    margin-left: 2rem;
+}
+
+.nav-link {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.nav-link:hover, .nav-link.active {
+    color: var(--saffron);
+}
+
+/* Search Bar */
+.nav-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    max-width: 25rem;
+    position: relative;
+}
+
+.search-input {
+    width: 100%;
+    height: 2.5rem;
+    background-color: var(--bg-surface);
+    border: 0.0625rem solid var(--border-low);
+    border-radius: 0.375rem;
+    padding: 0 1rem 0 2.5rem;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.search-input:focus {
+    border-color: var(--saffron);
+}
+
+.search-input::placeholder {
+    color: var(--text-secondary);
+}
+
+.search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1rem;
+    height: 1rem;
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+/* User Actions */
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn-ghost {
+    padding: 0.5rem 1rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.btn-primary {
+    padding: 0.5rem 1rem;
+    background-color: var(--saffron);
+    color: #000;
+    font-weight: 600;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.btn-primary:hover {
+    opacity: 0.9;
+}
+
+/* User Profile */
+.user-profile {
+    width: 2.25rem;
+    height: 2.25rem;
+    background-color: var(--border-low);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: calc(100% + 0.75rem);
+    right: 0;
+    background-color: var(--bg-surface);
+    border: 0.0625rem solid var(--border-low);
+    border-radius: 0.375rem;
+    width: 12rem;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.6);
+}
+
+.user-profile.active .dropdown-menu {
+    display: flex;
+}
+
+.dropdown-item {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    text-align: left;
+}
+
+.dropdown-item:hover {
+    background-color: var(--border-low);
+}
+
+.dropdown-item.logout {
+    color: var(--crimson);
+}
+
+/* Auth Pages & Forms */
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 4rem);
+    padding: 2rem;
+    margin-top: 4rem;
+}
+
+.auth-card {
+    background-color: var(--bg-surface);
+    border: 0.0625rem solid var(--border-low);
+    border-radius: 0.375rem;
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 28rem;
+}
+
+.auth-title {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.auth-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.form-input {
+    width: 100%;
+    height: 2.75rem;
+    background-color: var(--bg-base);
+    border: 0.0625rem solid var(--border-low);
+    border-radius: 0.375rem;
+    padding: 0 1rem;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.form-input:focus {
+    border-color: var(--saffron);
+}
+
+.form-input.error {
+    border-color: var(--crimson);
+}
+
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 1rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.toggle-password:hover {
+    color: var(--text-primary);
+}
+
+.toggle-password svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.auth-btn {
+    width: 100%;
+    height: 2.75rem;
+    background-color: var(--saffron);
+    color: #000;
+    font-weight: 600;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    margin-top: 1rem;
+}
+
+.auth-btn:hover {
+    opacity: 0.9;
+}
+
+.auth-footer {
+    margin-top: 1.5rem;
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.auth-link {
+    color: var(--saffron);
+    font-weight: 500;
+}
+
+.error-message {
+    color: var(--crimson);
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    display: none;
+}
+
+.success-banner {
+    background-color: rgba(132, 150, 105, 0.1);
+    border: 0.0625rem solid var(--saffron);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    display: none;
+    line-height: 1.4;
+}
+
+.success-banner strong {
+    color: var(--saffron);
+    display: block;
+    margin-bottom: 0.25rem;
+}
