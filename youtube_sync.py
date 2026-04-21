@@ -20,21 +20,28 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_youtube_id_masterpiece(title_english):
     """
-    Search for top 5 results using ytsearch5.
-    Fetch metadata using --dump-json --flat-playlist.
+    Search for top 10 results using ytsearch10.
+    Filter for embeddable videos using allows_embedding.
     Return the ID of the most viewed video.
     """
-    query = f"{title_english} chanting"
-    search_query = f"ytsearch5:{query}"
+    # Use only the title as requested
+    query = title_english
+    search_query = f"ytsearch10:{query}"
     
     try:
-        # Command: yt-dlp --dump-json --flat-playlist "ytsearch5:{query}"
+        # Command: yt-dlp --dump-json --flat-playlist --match-filter "allows_embedding" "ytsearch10:{query}"
         result = subprocess.run(
-            ["yt-dlp", "--dump-json", "--flat-playlist", search_query],
+            [
+                "yt-dlp", 
+                "--dump-json", 
+                "--flat-playlist", 
+                "--match-filter", "allows_embedding",
+                search_query
+            ],
             capture_output=True,
             text=True,
             check=True,
-            timeout=45
+            timeout=60
         )
         
         # result.stdout will contain multiple JSON objects (one per line)
@@ -67,7 +74,7 @@ def get_youtube_id_masterpiece(title_english):
 
 def sync_youtube():
     # User Input Prompt
-    print("\n--- POOJA ROOM YOUTUBE SYNC ---")
+    print("\n--- POOJA ROOM YOUTUBE SYNC: MASTERPIECE EDITION ---")
     print("Do you want to:")
     print(" (1) Skip records with existing YouTube IDs")
     print(" (2) Overwrite all existing IDs (Force Sync)")
@@ -120,19 +127,19 @@ def sync_youtube():
             # RESPECT USER CHOICE
             has_id = "youtube_id" in prayer_data and prayer_data["youtube_id"]
             if has_id and not overwrite_mode:
-                # Skip
+                # Silent skip to keep the log clean
                 continue
 
         except Exception as e:
             print(f"{counter_prefix} Error downloading {file_path}: {e}")
             continue
 
-        print(f"{counter_prefix} Syncing '{title}'...")
+        print(f"{counter_prefix} Syncing masterpiece for '{title}'...")
 
-        # 2. Get Best YouTube ID
+        # 2. Get Best YouTube ID (Embeddable + High View Count)
         youtube_id = get_youtube_id_masterpiece(title)
         if not youtube_id:
-            print(f"  No YouTube video found. Skipping.")
+            print(f"  No embeddable YouTube video found. Skipping.")
             continue
 
         # 3. Update the data
@@ -158,7 +165,7 @@ def sync_youtube():
             except Exception as e2:
                 print(f"  Final error uploading {file_path}: {e2}")
 
-        # Rate limiting sleep (Masterpiece search is heavier)
+        # Rate limiting sleep (Masterpiece search with 10 results + filters is heavier)
         time.sleep(1.5)
 
 if __name__ == "__main__":
