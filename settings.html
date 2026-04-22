@@ -210,15 +210,29 @@
             };
 
             document.getElementById('delete-account-btn').onclick = async () => {
-                const confirmed = confirm("CRITICAL: Are you absolutely sure? This will permanently delete your account and all saved parayana data.");
+                const confirmed = confirm("CRITICAL: Are you absolutely sure? This will permanently delete your account and all saved prayer data.");
                 if (!confirmed) return;
                 
                 const finalCheck = prompt("Type 'DELETE' to confirm account destruction:");
                 if (finalCheck !== 'DELETE') return;
 
-                alert("Account deletion requested. In this V1 demo, please sign out. (Backend administrative API required for full deletion).");
-                await window.supabase.auth.signOut();
-                window.location.href = 'index.html';
+                const btn = document.getElementById('delete-account-btn');
+                btn.disabled = true;
+                btn.textContent = "Deleting...";
+
+                // Call the SQL function we created
+                const { error } = await window.supabase.rpc('delete_user');
+
+                if (!error) {
+                    alert("Account successfully deleted. Returning to homepage.");
+                    // The session is now invalid, clear and redirect
+                    await window.supabase.auth.signOut();
+                    window.location.href = 'index.html';
+                } else {
+                    alert("Error deleting account: " + error.message);
+                    btn.disabled = false;
+                    btn.textContent = "Delete Account";
+                }
             };
         });
     </script>

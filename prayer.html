@@ -51,15 +51,15 @@
         </article>
     </main>
 
-    <!-- Add to Schedule Modal -->
+    <!-- Add to Schedule Modal (Multi-Day Selection) -->
     <div class="modal-overlay" id="schedule-modal">
-        <div class="modal-dialog" style="height: auto; max-height: 90vh;">
+        <div class="modal-dialog" style="height: auto; max-height: 90vh; width: 45rem;">
             <div class="modal-search-area" style="padding: 1.5rem; border-bottom: 0.0625rem solid var(--border-subtle);">
                 <h2 style="font-size: 1.25rem; color: var(--text-primary);">Add to Schedule</h2>
-                <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">Select a day to include this prayer.</p>
+                <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">Select days and arrange the order for each.</p>
             </div>
             <div class="modal-results" style="padding: 1.5rem;">
-                <div class="week-ribbon" style="margin-bottom: 2rem;">
+                <div class="week-ribbon" id="modal-week-ribbon" style="margin-bottom: 2rem;">
                     <button class="day-pill" data-day="Monday">M</button>
                     <button class="day-pill" data-day="Tuesday">T</button>
                     <button class="day-pill" data-day="Wednesday">W</button>
@@ -69,8 +69,8 @@
                     <button class="day-pill" data-day="Sunday">S</button>
                 </div>
 
-                <div id="modal-day-list" class="prayer-list" style="margin-bottom: 2rem;">
-                    <!-- Existing prayers for selected day + new one -->
+                <div id="multi-day-canvas" style="max-height: 25rem; overflow-y: auto; padding-right: 0.5rem; margin-bottom: 1.5rem;">
+                    <!-- Sections for each selected day injected here -->
                 </div>
 
                 <button id="confirm-add-btn" class="btn-primary w-full">Save to Schedule</button>
@@ -128,12 +128,6 @@
             let scheduleMetadata = {}; 
 
             async function loadPrayer() {
-                // Apply Font Size Preference
-                const savedSize = localStorage.getItem('prayer-font-size') || 'medium';
-                const sizeMap = { 'small': '1.1rem', 'medium': '1.25rem', 'large': '1.5rem' };
-                scriptureText.style.fontSize = sizeMap[savedSize];
-
-                // 1. Fetch Metadata from library table for CURRENT prayer
                 const { data: meta, error: metaErr } = await window.supabase
                     .from('library')
                     .select('*')
@@ -150,7 +144,6 @@
                 categoryEl.textContent = meta.category;
                 scheduleMetadata[meta.id] = meta; 
 
-                // 2. Fetch Content & Check Schedule
                 const { data: { session } } = await window.supabase.auth.getSession();
                 
                 if (session) {
@@ -164,7 +157,6 @@
                         "Monday":[], "Tuesday":[], "Wednesday":[], "Thursday":[], "Friday":[], "Saturday":[], "Sunday":[]
                     };
 
-                    // Fetch metadata for all prayers in schedule to show them in the modal
                     const allScheduleIds = [...new Set(Object.values(userSchedule).flat())];
                     if (allScheduleIds.length > 0) {
                         const { data: schedMeta } = await window.supabase
@@ -187,12 +179,12 @@
                 try {
                     const response = await fetch(meta.json_url);
                     prayerContent = await response.json();
-                    
                     renderLanguageTrack();
-                    
-                    // Respect saved language preference
                     const defaultLang = localStorage.getItem('default-prayer-lang') || 'english';
                     const initialLang = prayerContent.body[defaultLang] ? defaultLang : 'english';
+                    const savedSize = localStorage.getItem('prayer-font-size') || 'medium';
+                    const sizeMap = { 'small': '1.1rem', 'medium': '1.25rem', 'large': '1.5rem' };
+                    scriptureText.style.fontSize = sizeMap[savedSize];
                     renderScripture(initialLang);
                     renderMedia(prayerContent.youtube_id);
                 } catch (err) {
@@ -200,10 +192,8 @@
                     scriptureText.textContent = "Error loading prayer text.";
                 }
 
-                // 3. Handle Completion Button & Status Check
                 if (fromDashboard) {
                     completeBtn.style.display = 'flex';
-                    
                     const startOfToday = new Date();
                     startOfToday.setHours(0, 0, 0, 0);
 
@@ -228,17 +218,13 @@
             }
 
             function setupScheduleModal(userId) {
-                let selectedDay = "Monday";
-                let tempDayList = [];
+                let selectedDays = new Set(["Monday"]); 
+                let workingSchedule = JSON.parse(JSON.stringify(userSchedule)); 
                 let dragIdx = null;
+                let dragDay = null;
 
                 addToScheduleBtn.onclick = () => {
                     scheduleModal.classList.add('show');
-                    // Reset to a clean state each time modal opens
-                    tempDayList = [...userSchedule[selectedDay]];
-                    if (!tempDayList.includes(prayerId)) {
-                        tempDayList.push(prayerId);
-                    }
                     updateModalView();
                 };
 
@@ -248,87 +234,105 @@
 
                 scheduleModal.querySelectorAll('.day-pill').forEach(pill => {
                     pill.onclick = () => {
-                        selectedDay = pill.getAttribute('data-day');
-                        // Refresh temp list for new day
-                        tempDayList = [...userSchedule[selectedDay]];
-                        if (!tempDayList.includes(prayerId)) {
-                            tempDayList.push(prayerId);
+                        const day = pill.getAttribute('data-day');
+                        if (selectedDays.has(day)) {
+                            if (selectedDays.size > 1) selectedDays.delete(day);
+                        } else {
+                            selectedDays.add(day);
                         }
                         updateModalView();
                     };
                 });
 
                 function updateModalView() {
+                    // Update Ribbon UI
                     scheduleModal.querySelectorAll('.day-pill').forEach(p => 
-                        p.classList.toggle('active', p.getAttribute('data-day') === selectedDay)
+                        p.classList.toggle('active', selectedDays.has(p.getAttribute('data-day')))
                     );
 
-                    const listEl = document.getElementById('modal-day-list');
-                    listEl.innerHTML = '';
+                    const canvas = document.getElementById('multi-day-canvas');
+                    canvas.innerHTML = '';
 
-                    tempDayList.forEach((id, index) => {
-                        const isCurrent = id === prayerId;
-                        const meta = scheduleMetadata[id] || { title: "Loading...", category: "Daily Prayers" };
-                        const icon = categoryIconMap[meta.category] || 'icon.svg';
-
-                        const item = document.createElement('div');
-                        item.className = 'draggable-item';
-                        item.draggable = true;
-                        item.dataset.index = index;
-                        item.style.borderColor = isCurrent ? 'var(--brand-saffron)' : 'var(--border-subtle)';
-                        item.style.opacity = isCurrent ? '1' : '1'; // Keep solid for better visibility
-                        
-                        item.innerHTML = `
-                            <div class="drag-handle" style="pointer-events: none;">⋮⋮</div>
-                            <img src="static/assets/icons/${icon}" class="item-icon" style="width:1.25rem; height:1.25rem; margin:0 0.75rem; pointer-events: none;">
-                            <span class="item-title" style="font-size:0.9rem; pointer-events: none;">${meta.title}</span>
+                    selectedDays.forEach(day => {
+                        const daySection = document.createElement('div');
+                        daySection.style.marginBottom = '2rem';
+                        daySection.innerHTML = `
+                            <h3 style="font-size: 0.875rem; color: var(--brand-saffron); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">${day}</h3>
+                            <div class="day-list-container" data-day="${day}"></div>
                         `;
+                        const listEl = daySection.querySelector('.day-list-container');
 
-                        item.addEventListener('dragstart', (e) => {
-                            dragIdx = index;
-                            item.classList.add('dragging');
-                            e.dataTransfer.effectAllowed = 'move';
+                        // Ensure current prayer is in this day's working list
+                        if (!workingSchedule[day].includes(prayerId)) {
+                            workingSchedule[day].push(prayerId);
+                        }
+
+                        workingSchedule[day].forEach((id, index) => {
+                            const isCurrent = id === prayerId;
+                            const meta = scheduleMetadata[id] || { title: "Loading...", category: "Daily Prayers" };
+                            const icon = categoryIconMap[meta.category] || 'icon.svg';
+
+                            const item = document.createElement('div');
+                            item.className = 'draggable-item';
+                            item.draggable = true;
+                            item.style.borderColor = isCurrent ? 'var(--brand-saffron)' : 'var(--border-subtle)';
+                            
+                            item.innerHTML = `
+                                <div class="drag-handle" style="pointer-events: none;">⋮⋮</div>
+                                <img src="static/assets/icons/${icon}" class="item-icon" style="width:1.25rem; height:1.25rem; margin:0 0.75rem; pointer-events: none;">
+                                <span class="item-title" style="font-size:0.9rem; pointer-events: none;">${meta.title}</span>
+                            `;
+
+                            item.addEventListener('dragstart', (e) => {
+                                dragIdx = index;
+                                dragDay = day;
+                                item.classList.add('dragging');
+                            });
+
+                            item.addEventListener('dragover', (e) => e.preventDefault());
+
+                            item.addEventListener('drop', (e) => {
+                                e.preventDefault();
+                                if (dragDay === day && dragIdx !== null && dragIdx !== index) {
+                                    const moved = workingSchedule[day].splice(dragIdx, 1)[0];
+                                    workingSchedule[day].splice(index, 0, moved);
+                                    updateModalView();
+                                }
+                            });
+
+                            item.addEventListener('dragend', () => {
+                                item.classList.remove('dragging');
+                                dragIdx = null;
+                                dragDay = null;
+                            });
+
+                            listEl.appendChild(item);
                         });
 
-                        item.addEventListener('dragover', (e) => {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = 'move';
-                        });
-
-                        item.addEventListener('drop', (e) => {
-                            e.preventDefault();
-                            if (dragIdx !== null && dragIdx !== index) {
-                                const moved = tempDayList.splice(dragIdx, 1)[0];
-                                tempDayList.splice(index, 0, moved);
-                                updateModalView();
-                            }
-                        });
-
-                        item.addEventListener('dragend', () => {
-                            item.classList.remove('dragging');
-                            dragIdx = null;
-                        });
-
-                        listEl.appendChild(item);
+                        canvas.appendChild(daySection);
                     });
                 }
 
                 document.getElementById('confirm-add-btn').onclick = async () => {
                     const btn = document.getElementById('confirm-add-btn');
                     btn.disabled = true;
-                    btn.textContent = "Updating...";
+                    btn.textContent = "Updating Schedule...";
 
-                    userSchedule[selectedDay] = tempDayList;
+                    // Sync working changes to the final userSchedule object for ALL days
+                    const finalSchedule = JSON.parse(JSON.stringify(userSchedule));
+                    selectedDays.forEach(day => {
+                        finalSchedule[day] = workingSchedule[day];
+                    });
 
                     const { error } = await window.supabase
                         .from('profiles')
-                        .update({ schedule: userSchedule })
+                        .update({ schedule: finalSchedule })
                         .eq('id', userId);
 
                     if (!error) {
                         scheduleModal.classList.remove('show');
                         addToScheduleBtn.style.display = 'none';
-                        alert("Added to your schedule!");
+                        alert("Schedule successfully updated!");
                     } else {
                         alert("Error: " + error.message);
                         btn.disabled = false;
@@ -339,12 +343,7 @@
 
             function renderLanguageTrack() {
                 if (!prayerContent || !prayerContent.body) return;
-                
-                const langOrder = [
-                    "english", "hindi", "devanagari", "bengali", "marathi", 
-                    "telugu", "tamil", "gujarati", "kannada", "odia", "malayalam"
-                ];
-
+                const langOrder = ["english", "hindi", "devanagari", "bengali", "marathi", "telugu", "tamil", "gujarati", "kannada", "odia", "malayalam"];
                 const availableLangs = Object.keys(prayerContent.body).sort((a, b) => {
                     const idxA = langOrder.indexOf(a);
                     const idxB = langOrder.indexOf(b);
@@ -352,7 +351,6 @@
                     if (idxB === -1) return -1;
                     return idxA - idxB;
                 });
-                
                 langTrack.innerHTML = '';
                 availableLangs.forEach(lang => {
                     const chip = document.createElement('button');
@@ -382,42 +380,26 @@
 
             function renderMedia(youtubeId) {
                 if (youtubeId) {
-                    mediaContainer.innerHTML = `
-                        <iframe src="https://www.youtube.com/embed/${youtubeId}?rel=0" 
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                allowfullscreen></iframe>
-                    `;
+                    mediaContainer.innerHTML = `<iframe src="https://www.youtube.com/embed/${youtubeId}?rel=0" allowfullscreen></iframe>`;
                 } else {
-                    mediaContainer.innerHTML = `
-                        <div class="media-empty">
-                            <span style="font-size: 2rem; opacity: 0.5;">🎵</span>
-                            <p style="color: var(--text-secondary); font-size: 0.875rem;">Audio not available for this stotram</p>
-                        </div>
-                    `;
+                    mediaContainer.innerHTML = `<div class="media-empty"><span style="font-size: 2rem; opacity: 0.5;">🎵</span><p style="color: var(--text-secondary); font-size: 0.875rem;">Audio not available for this stotram</p></div>`;
                 }
             }
 
             async function handleCompletion() {
                 const { data: { session } } = await window.supabase.auth.getSession();
                 if (!session) return;
-
                 completeBtn.disabled = true;
                 completeBtn.classList.add('success');
                 completeBtn.innerHTML = '<span>✓</span> Completed!';
-
                 try {
-                    const { error } = await window.supabase
-                        .from('prayer_logs')
-                        .insert([{ user_id: session.user.id, prayer_id: prayerId }]);
-
-                    if (error) throw error;
+                    await window.supabase.from('prayer_logs').insert([{ user_id: session.user.id, prayer_id: prayerId }]);
                     setTimeout(() => { window.location.href = 'dashboard.html'; }, 1500);
                 } catch (err) {
-                    console.error("Error logging prayer:", err.message);
                     completeBtn.disabled = false;
                     completeBtn.classList.remove('success');
                     completeBtn.innerHTML = '<span>✓</span> Complete';
-                    alert("Failed to save progress. Please try again.");
+                    alert("Failed to save progress.");
                 }
             }
 
