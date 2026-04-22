@@ -87,6 +87,12 @@ def get_youtube_id_masterpiece(title_english):
                     # Must contain at least one unique identifier (e.g., 'annapurna')
                     if not any(k in v_title for k in unique_keywords):
                         continue
+                    if 'chalisa' in all_words and 'chalisa' not in v_title:
+                        continue
+                    if 'kavach' in all_words and 'kavach' not in v_title and 'kavacham' not in v_title:
+                        continue
+                    if 'suktam' in all_words and 'suktam' not in v_title and 'sukta' not in v_title:
+                        continue
                 else:
                     # If the title was purely generic (e.g. "Stotram Mantra"), 
                     # require ALL words to be present to be safe.
