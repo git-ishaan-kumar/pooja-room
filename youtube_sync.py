@@ -19,30 +19,41 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# Generic words that often cause false positives
+GENERIC_BLACKLIST = {
+    'stotram', 'stotra', 'suktam', 'sahasranamam', 'ashtottara', 
+    'satanama', 'shatanama', 'namavali', 'chalisa', 'kavacham', 
+    'kavach', 'mantra', 'mantram', 'sloka', 'parayana'
+}
+
 def get_keywords(text):
-    """Extract words longer than 3 letters for the title guardrail."""
-    # Remove special characters and split into lowercase words
-    words = re.findall(r'\w+', text.lower())
-    return [w for w in words if len(w) > 3]
+    """
+    Extracts high-value identifying keywords.
+    - Filters words <= 3 chars.
+    - Filters generic religious terms.
+    """
+    # All significant words (lowercase, > 3 chars)
+    all_words = [w for w in re.findall(r'\w+', text.lower()) if len(w) > 3]
+    # Filtered unique keywords (not in blacklist)
+    unique_keywords = [w for w in all_words if w not in GENERIC_BLACKLIST]
+    
+    return unique_keywords, all_words
 
 def get_youtube_id_masterpiece(title_english):
     """
-    Find the ultimate version of a prayer:
-    - Strict Exact Match Query
-    - Search pool of 15 results
-    - Filter for public availability & embeddability
-    - Guardrail: Title must contain at least one keyword from the database title
-    - Winner: Highest view count
+    Search for top 15 results.
+    Apply Brutal Guardrail: 
+    - If unique keywords exist, YT title MUST contain at least one.
+    - If title is purely generic, YT title MUST contain ALL original words.
+    - Winner: Highest view count among embeddable/public videos.
     """
-    # Strict Exact Match Search
     query = f'"{title_english}"'
     search_query = f"ytsearch15:{query}"
     
-    # Pre-extract keywords for guardrail
-    keywords = get_keywords(title_english)
+    unique_keywords, all_words = get_keywords(title_english)
     
     try:
-        # Command: yt-dlp with dump-json and strict embeddability filter
+        # Fetch metadata pool with embeddability filter
         result = subprocess.run(
             [
                 "yt-dlp", 
@@ -63,19 +74,24 @@ def get_youtube_id_masterpiece(title_english):
             try:
                 v = json.loads(line)
                 
-                # 1. Basic Metadata
                 v_id = v.get('id')
                 v_title = v.get('title', '').lower()
                 v_views = v.get('view_count') or 0
                 
-                # 2. Availability Check
+                # 1. Availability Check
                 if v.get('availability') and v.get('availability') != 'public':
                     continue
                 
-                # 3. Guardrail: Keyword Check
-                # The YT title MUST contain at least one word (>3 chars) from the original title
-                if keywords and not any(k in v_title for k in keywords):
-                    continue
+                # 2. Brutal Guardrail Logic
+                if unique_keywords:
+                    # Must contain at least one unique identifier (e.g., 'annapurna')
+                    if not any(k in v_title for k in unique_keywords):
+                        continue
+                else:
+                    # If the title was purely generic (e.g. "Stotram Mantra"), 
+                    # require ALL words to be present to be safe.
+                    if not all(w in v_title for w in all_words):
+                        continue
                 
                 valid_pool.append({
                     'id': v_id,
@@ -88,20 +104,19 @@ def get_youtube_id_masterpiece(title_english):
         if not valid_pool:
             return None
 
-        # 4. Pick the Winner (Highest view count)
+        # 3. Pick the Winner (Highest view count)
         winner = max(valid_pool, key=lambda x: x['view_count'])
         
         print(f"  [Success] Found: {winner['title']} | {winner['view_count']:,} views | ID: {winner['id']}")
         return winner['id']
 
     except Exception as e:
-        print(f"  [Error] Masterpiece search failed for '{title_english}': {e}")
+        print(f"  [Error] Search failed for '{title_english}': {e}")
     return None
 
 def sync_youtube():
-    # User Input Prompt
     print("\n" + "="*50)
-    print(" POOJA ROOM ULTIMATE YOUTUBE SYNC ")
+    print(" POOJA ROOM BRUTAL SYNC: MASTERPIECE EDITION ")
     print("="*50)
     print(" (1) Skip records with existing YouTube IDs")
     print(" (2) Overwrite all existing IDs (Force Sync)")
@@ -109,7 +124,7 @@ def sync_youtube():
     
     overwrite_mode = (choice == '2')
 
-    print("\nFetching library metadata...")
+    print("\nConnecting to database...")
     all_records = []
     start = 0
     page_size = 1000
@@ -123,11 +138,11 @@ def sync_youtube():
             if len(batch) < page_size: break
             start += page_size
         except Exception as e:
-            print(f"Error connecting to Supabase: {e}")
+            print(f"Connection Error: {e}")
             return
 
     total = len(all_records)
-    print(f"Starting sync for {total} records. Overwrite: {overwrite_mode}")
+    print(f"Syncing {total} records. Overwrite: {overwrite_mode}")
 
     for index, record in enumerate(all_records):
         title = record.get("title")
@@ -137,7 +152,6 @@ def sync_youtube():
         file_path = f"{slug}.json"
         counter = f"[{index+1}/{total}]"
 
-        # 1. Download & Skip Check
         try:
             storage_res = supabase.storage.from_(SUPABASE_BUCKET).download(file_path)
             prayer_data = json.loads(storage_res.decode('utf-8'))
@@ -145,23 +159,19 @@ def sync_youtube():
             if not overwrite_mode and prayer_data.get("youtube_id"):
                 continue
         except Exception:
-            # Silent skip if file missing
             continue
 
         print(f"{counter} Processing: '{title}'")
 
-        # 2. Find Masterpiece
         yt_id = get_youtube_id_masterpiece(title)
         
         if not yt_id:
-            print(f"  [Skip] No valid/embeddable version found.")
+            print(f"  [Skip] No valid/unique version found.")
             continue
 
-        # 3. Update & Upload
         prayer_data["youtube_id"] = yt_id
         try:
             updated_json = json.dumps(prayer_data, ensure_ascii=False, indent=2).encode('utf-8')
-            # Attempt update first for speed
             try:
                 supabase.storage.from_(SUPABASE_BUCKET).update(
                     path=file_path,
@@ -169,16 +179,14 @@ def sync_youtube():
                     file_options={"content-type": "application/json"}
                 )
             except Exception:
-                # Fallback to upsert upload
                 supabase.storage.from_(SUPABASE_BUCKET).upload(
                     path=file_path,
                     file=updated_json,
                     file_options={"content-type": "application/json", "x-upsert": "true"}
                 )
         except Exception as e:
-            print(f"  [Error] Failed to save {file_path}: {e}")
+            print(f"  [Error] Save failed for {file_path}: {e}")
 
-        # 4. Rate Limiting
         time.sleep(1.5)
 
 if __name__ == "__main__":
