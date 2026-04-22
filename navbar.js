@@ -23,7 +23,7 @@ function renderNavbar(user) {
                     <span>Pooja Room</span>
                 </a>
                 ${user ? `
-                <nav class="nav-links">
+                <nav class="nav-links desktop-only">
                     <a href="/dashboard" class="nav-link ${window.location.pathname.endsWith('/dashboard') ? 'active' : ''}">Dashboard</a>
                     <a href="/library" class="nav-link ${window.location.pathname.endsWith('/library') ? 'active' : ''}">Prayers</a>
                 </nav>
@@ -48,26 +48,84 @@ function renderNavbar(user) {
                             </div>
                         </div>
                     ` : `
-                        <a href="/login" class="btn-ghost">Sign In</a>
-                        <a href="/register" class="btn-primary">Register</a>
+                        <a href="/login" class="btn-ghost desktop-only">Sign In</a>
+                        <a href="/register" class="btn-primary desktop-only">Register</a>
                     `}
+                    <button id="nav-toggle" class="nav-toggle" aria-label="Toggle Navigation">
+                        <span class="hamburger-line"></span>
+                        <span class="hamburger-line"></span>
+                        <span class="hamburger-line"></span>
+                    </button>
                 </div>
             </div>
         </div>
+
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="mobile-menu">
+            ${user ? `
+                <div class="mobile-nav-links">
+                    <a href="/dashboard" class="mobile-nav-link ${window.location.pathname.endsWith('/dashboard') ? 'active' : ''}">Dashboard</a>
+                    <a href="/library" class="mobile-nav-link ${window.location.pathname.endsWith('/library') ? 'active' : ''}">Prayers</a>
+                    <a href="/settings" class="mobile-nav-link ${window.location.pathname.endsWith('/settings') ? 'active' : ''}">Account Settings</a>
+                    <a href="#" id="mobile-logout-btn" class="mobile-nav-link logout-item">Logout</a>
+                </div>
+            ` : `
+                <div class="mobile-nav-links">
+                    <a href="/" class="mobile-nav-link">Home</a>
+                    <a href="/login" class="mobile-nav-link">Sign In</a>
+                    <a href="/register" class="mobile-nav-link">Register</a>
+                </div>
+            `}
+        </div>
     `;
 
-    // Attach Logout Logic
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const { error } = await window.supabase.auth.signOut();
-            if (error) console.error("Logout Error:", error.message);
-            window.location.href = '/';
+    // Attach Logout Logic (Desktop & Mobile)
+    const attachLogout = (id) => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const { error } = await window.supabase.auth.signOut();
+                if (error) console.error("Logout Error:", error.message);
+                window.location.href = '/';
+            });
+        }
+    };
+    attachLogout('logout-btn');
+    attachLogout('mobile-logout-btn');
+
+    // Mobile Menu Toggle Logic
+    const navToggle = document.getElementById('nav-toggle');
+    const mobileMenu = document.getElementById('mobile-menu');
+    if (navToggle && mobileMenu) {
+        navToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            navToggle.classList.toggle('active');
+            mobileMenu.classList.toggle('active');
+            document.body.classList.toggle('no-scroll');
+        });
+
+        // Close menu when clicking links
+        const mobileLinks = mobileMenu.querySelectorAll('.mobile-nav-link');
+        mobileLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                navToggle.classList.remove('active');
+                mobileMenu.classList.remove('active');
+                document.body.classList.remove('no-scroll');
+            });
+        });
+
+        // Close when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!mobileMenu.contains(e.target) && !navToggle.contains(e.target)) {
+                navToggle.classList.remove('active');
+                mobileMenu.classList.remove('active');
+                document.body.classList.remove('no-scroll');
+            }
         });
     }
 
-    // Dropdown Toggle Logic
+    // Dropdown Toggle Logic (Desktop Only)
     const userProfile = document.querySelector('.user-profile');
     const dropdownMenu = document.querySelector('.dropdown-menu');
     if (userProfile && dropdownMenu) {
