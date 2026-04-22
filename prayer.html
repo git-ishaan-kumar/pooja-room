@@ -48,6 +48,13 @@
             <section class="scripture-body" id="scripture-text">
                 <!-- Text Injected by JS -->
             </section>
+
+            <!-- Bottom Actions -->
+            <div class="prayer-footer" style="margin-top: 4rem; padding-top: 2rem; border-top: 0.0625rem solid var(--border-subtle); display: flex; justify-content: center;">
+                <button id="complete-btn-bottom" class="btn-complete" style="display: none; padding: 0.75rem 2.5rem; font-size: 1.125rem;">
+                    <span>✓</span> Complete Prayer
+                </button>
+            </div>
         </article>
     </main>
 
@@ -100,6 +107,7 @@
             const mediaContainer = document.getElementById('media-container');
             const scriptureText = document.getElementById('scripture-text');
             const completeBtn = document.getElementById('complete-btn');
+            const completeBtnBottom = document.getElementById('complete-btn-bottom');
             const addToScheduleBtn = document.getElementById('add-to-schedule-btn');
             const scheduleModal = document.getElementById('schedule-modal');
 
@@ -194,6 +202,7 @@
 
                 if (fromDashboard) {
                     completeBtn.style.display = 'flex';
+                    completeBtnBottom.style.display = 'flex';
                     const startOfToday = new Date();
                     startOfToday.setHours(0, 0, 0, 0);
 
@@ -207,11 +216,14 @@
                             .limit(1);
 
                         if (existingLog && existingLog.length > 0) {
-                            completeBtn.disabled = true;
-                            completeBtn.classList.add('success');
-                            completeBtn.innerHTML = '<span>✓</span> Completed!';
+                            [completeBtn, completeBtnBottom].forEach(btn => {
+                                btn.disabled = true;
+                                btn.classList.add('success');
+                                btn.innerHTML = '<span>✓</span> Completed!';
+                            });
                         } else {
                             completeBtn.addEventListener('click', handleCompletion);
+                            completeBtnBottom.addEventListener('click', handleCompletion);
                         }
                     }
                 }
@@ -389,16 +401,22 @@
             async function handleCompletion() {
                 const { data: { session } } = await window.supabase.auth.getSession();
                 if (!session) return;
-                completeBtn.disabled = true;
-                completeBtn.classList.add('success');
-                completeBtn.innerHTML = '<span>✓</span> Completed!';
+
+                [completeBtn, completeBtnBottom].forEach(btn => {
+                    btn.disabled = true;
+                    btn.classList.add('success');
+                    btn.innerHTML = '<span>✓</span> Completed!';
+                });
+
                 try {
                     await window.supabase.from('prayer_logs').insert([{ user_id: session.user.id, prayer_id: prayerId }]);
                     setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
                 } catch (err) {
-                    completeBtn.disabled = false;
-                    completeBtn.classList.remove('success');
-                    completeBtn.innerHTML = '<span>✓</span> Complete';
+                    [completeBtn, completeBtnBottom].forEach(btn => {
+                        btn.disabled = false;
+                        btn.classList.remove('success');
+                        btn.innerHTML = btn.id === 'complete-btn' ? '<span>✓</span> Complete' : '<span>✓</span> Complete Prayer';
+                    });
                     alert("Failed to save progress.");
                 }
             }
