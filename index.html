@@ -21,7 +21,7 @@
             <div class="text-stack">
                 <h1>1,164 Hindu prayers. <span>Uninterrupted devotion.</span></h1>
                 <p>Pooja Room is the digital library for Hindu prayers. Access structured texts across 19 regional languages with YouTube audios.</p>
-                <a href="register.html" class="btn-primary cta-btn">Start Praying</a>
+                <a href="/register" class="btn-primary cta-btn">Start Praying</a>
                 
                 <!-- Mobile Grid Fallback -->
                 <div class="mobile-icons-grid" id="mobile-icons"></div>
@@ -42,7 +42,7 @@
             // Redirect if already logged in
             const { data: { session } } = await window.supabase.auth.getSession();
             if (session) {
-                window.location.href = 'dashboard.html';
+                window.location.href = '/dashboard';
                 return;
             }
 

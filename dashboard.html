@@ -23,7 +23,7 @@
                 <h1 id="greeting-text">Good morning, User.</h1>
                 <p class="date-subtitle" id="date-text">Today is Monday, April 20</p>
             </div>
-            <a href="schedule.html" class="btn-outline" style="margin-top: 0.5rem;">Edit Schedule</a>
+            <a href="/schedule" class="btn-outline" style="margin-top: 0.5rem;">Edit Schedule</a>
         </section>
 
         <!-- Today's Parayana Section (Rendered via JS) -->
@@ -51,7 +51,7 @@
         <div id="empty-state" class="empty-state" style="display: none;">
             <img src="static/assets/icons/daily-prayers.svg" alt="Empty Schedule">
             <p class="empty-text">Your schedule is empty.</p>
-            <a href="schedule.html" class="btn-primary empty-btn">Setup Schedule</a>
+            <a href="/schedule" class="btn-primary empty-btn">Setup Schedule</a>
         </div>
     </main>
 
@@ -65,7 +65,7 @@
             // 1. Auth Guard
             const { data: { session } } = await window.supabase.auth.getSession();
             if (!session) {
-                window.location.href = 'login.html';
+                window.location.href = '/login';
                 return;
             }
 
@@ -193,7 +193,7 @@
                             <span class="category-tag">${prayer.category}</span>
                         </div>
                         <h3 class="card-title">${prayer.title}</h3>
-                        <a href="prayer.html?id=${prayer.id}&from=dashboard" class="${isDone ? 'btn-outline' : 'btn-primary'} w-full" style="text-align: center;">
+                        <a href="/prayer?id=${prayer.id}&from=dashboard" class="${isDone ? 'btn-outline' : 'btn-primary'} w-full" style="text-align: center;">
                             ${isDone ? '✓ Done for Today' : 'Start Praying'}
                         </a>
                     `;

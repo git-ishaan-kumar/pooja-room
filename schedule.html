@@ -76,7 +76,7 @@
             // 1. Auth Guard
             const { data: { session } } = await window.supabase.auth.getSession();
             if (!session) {
-                window.location.href = 'login.html';
+                window.location.href = '/login';
                 return;
             }
 
@@ -234,7 +234,6 @@
                     showSuggestions();
                 };
 
-                // Close on click outside
                 modal.onclick = (e) => {
                     if (e.target === modal) modal.classList.remove('show');
                 };
@@ -250,7 +249,6 @@
                 };
 
                 function showSuggestions() {
-                    // Similar to library, pick 15 random ones for diversity
                     const shuffled = [...allPrayers].sort(() => 0.5 - Math.random());
                     renderModalResults(shuffled.slice(0, 15));
                 }
@@ -300,7 +298,7 @@
                     btn.disabled = false;
                     btn.textContent = "Save Schedule";
                 } else {
-                    window.location.href = 'dashboard.html';
+                    window.location.href = '/dashboard';
                 }
             };
 

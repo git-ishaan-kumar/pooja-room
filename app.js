@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Global redirects for specific events if needed
         if (event === 'SIGNED_OUT') {
-            window.location.href = 'index.html';
+            window.location.href = '/';
         }
     });
 });

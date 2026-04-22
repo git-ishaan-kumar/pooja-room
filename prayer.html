@@ -90,7 +90,7 @@
             const fromDashboard = urlParams.get('from') === 'dashboard';
 
             if (!prayerId) {
-                window.location.href = 'library.html';
+                window.location.href = '/library';
                 return;
             }
 
@@ -394,7 +394,7 @@
                 completeBtn.innerHTML = '<span>✓</span> Completed!';
                 try {
                     await window.supabase.from('prayer_logs').insert([{ user_id: session.user.id, prayer_id: prayerId }]);
-                    setTimeout(() => { window.location.href = 'dashboard.html'; }, 1500);
+                    setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
                 } catch (err) {
                     completeBtn.disabled = false;
                     completeBtn.classList.remove('success');

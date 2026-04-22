@@ -12,7 +12,7 @@ function renderNavbar(user) {
         : (user?.email ? user.email.charAt(0).toUpperCase() : '?');
 
     // Logo destination based on auth state
-    const logoHref = user ? 'dashboard.html' : 'index.html';
+    const logoHref = user ? '/dashboard' : '/';
 
     navbarContainer.innerHTML = `
         <div class="nav-content container">
@@ -24,8 +24,8 @@ function renderNavbar(user) {
                 </a>
                 ${user ? `
                 <nav class="nav-links">
-                    <a href="dashboard.html" class="nav-link ${window.location.pathname.endsWith('dashboard.html') ? 'active' : ''}">Dashboard</a>
-                    <a href="library.html" class="nav-link ${window.location.pathname.endsWith('library.html') ? 'active' : ''}">Prayers</a>
+                    <a href="/dashboard" class="nav-link ${window.location.pathname.endsWith('/dashboard') ? 'active' : ''}">Dashboard</a>
+                    <a href="/library" class="nav-link ${window.location.pathname.endsWith('/library') ? 'active' : ''}">Prayers</a>
                 </nav>
                 ` : ''}
             </div>
@@ -43,13 +43,13 @@ function renderNavbar(user) {
                         <div class="user-profile">
                             <div class="profile-circle">${initial}</div>
                             <div class="dropdown-menu">
-                                <a href="settings.html" class="dropdown-item">Account Settings</a>
+                                <a href="/settings" class="dropdown-item">Account Settings</a>
                                 <a href="#" id="logout-btn" class="dropdown-item logout-item">Logout</a>
                             </div>
                         </div>
                     ` : `
-                        <a href="login.html" class="btn-ghost">Sign In</a>
-                        <a href="register.html" class="btn-primary">Register</a>
+                        <a href="/login" class="btn-ghost">Sign In</a>
+                        <a href="/register" class="btn-primary">Register</a>
                     `}
                 </div>
             </div>
@@ -63,7 +63,7 @@ function renderNavbar(user) {
             e.preventDefault();
             const { error } = await window.supabase.auth.signOut();
             if (error) console.error("Logout Error:", error.message);
-            window.location.href = 'index.html';
+            window.location.href = '/';
         });
     }
 
@@ -87,7 +87,7 @@ function renderNavbar(user) {
     if (globalSearch) {
         globalSearch.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && globalSearch.value.trim().length > 0) {
-                window.location.href = `library.html?q=${encodeURIComponent(globalSearch.value.trim())}`;
+                window.location.href = `/library?q=${encodeURIComponent(globalSearch.value.trim())}`;
             }
         });
     }
