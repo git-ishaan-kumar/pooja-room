@@ -7,7 +7,7 @@
 ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?logo=supabase&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Vercel-000000?logo=vercel&logoColor=white)
 
-Pooja Room is a digital library for Hindu prayers. Access structured texts across 19 regional languages with YouTube audios.
+Pooja Room is a digital library for Hindu prayers. Access prayers across 19 different languages with YouTube audios.
 
 [![Live Demo](https://img.shields.io/badge/LIVE_WEBSITE-pooja--room.vercel.app-black?style=for-the-badge&logo=vercel)](https://pooja-room.vercel.app)
 
